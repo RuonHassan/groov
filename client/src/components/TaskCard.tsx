@@ -5,7 +5,8 @@ import {
   CheckCircle, 
   Clock, 
   Calendar,
-  Pencil
+  Pencil,
+  ChevronRight
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,7 @@ interface TaskCardProps {
 export default function TaskCard({ task }: TaskCardProps) {
   const { updateTask } = useTaskContext();
   const [showEditModal, setShowEditModal] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   // Function to mark a task as completed
   const handleComplete = async () => {
@@ -60,98 +62,104 @@ export default function TaskCard({ task }: TaskCardProps) {
     }
   };
 
-  // Function to format task status for display
-  const formatStatus = () => {
-    switch(task.status) {
-      case "next":
-        return "Next Action";
-      case "waiting":
-        return "Waiting For";
-      case "someday":
-        return "Someday/Maybe";
-      case "project":
-        return "Project";
-      case "inbox":
-        return "Inbox";
-      default:
-        return task.status;
-    }
-  };
-
   // Format the date
   const formatDate = (dateString: string | Date | null | undefined) => {
     if (!dateString) return "";
-    return format(new Date(dateString), "MMM d, yyyy");
+    return format(new Date(dateString), "MMM d");
   };
 
   return (
     <>
-      <Card className={cn(
-        "task-card overflow-hidden border-t-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md",
-        getBorderColor()
-      )}>
-        <div className="p-4">
-          <div className="flex justify-between items-start">
-            <h3 className="text-lg font-medium text-gray-900 line-clamp-2">{task.title}</h3>
-            <div className="flex space-x-1">
+      <Card 
+        className={cn(
+          "task-card overflow-hidden border-l-4 transition-all duration-200 hover:shadow-md",
+          getBorderColor()
+        )}
+      >
+        <div className="p-3">
+          {/* Main task row with minimum info */}
+          <div className="flex justify-between items-center">
+            <div className="flex-1 min-w-0 mr-2">
+              <h3 
+                className="text-sm font-medium text-gray-900 truncate cursor-pointer"
+                onClick={() => setExpanded(!expanded)}
+              >
+                {task.title}
+              </h3>
+              
+              <div className="flex flex-wrap items-center gap-1 mt-1">
+                <Badge 
+                  variant="outline" 
+                  className={cn("px-1.5 py-0 text-xs", getContextColor())}
+                >
+                  {task.context}
+                </Badge>
+                
+                {task.dueDate && (
+                  <div className="inline-flex items-center text-xs text-gray-500">
+                    <Calendar className="mr-0.5 h-3 w-3 text-gray-400" />
+                    <span>{formatDate(task.dueDate)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-1">
               <button 
                 onClick={handleComplete}
                 className="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-green-500"
               >
-                <CheckCircle className="h-5 w-5" />
+                <CheckCircle className="h-4 w-4" />
               </button>
               <button 
                 onClick={() => setShowEditModal(true)}
                 className="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-primary-500"
               >
-                <Pencil className="h-5 w-5" />
+                <Pencil className="h-4 w-4" />
               </button>
             </div>
           </div>
           
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Badge variant="outline" className={getContextColor()}>
-              {task.context}
-            </Badge>
-            
-            <Badge variant="outline" className="bg-gray-100 text-gray-800">
-              {formatStatus()}
-            </Badge>
-            
-            {task.time && (
-              <Badge variant="outline" className="bg-gray-100 text-gray-800 flex items-center">
-                <Clock className="mr-1 h-3 w-3 text-gray-500" />
-                {task.time} min
-              </Badge>
-            )}
-            
-            {task.energy && (
-              <Badge variant="outline" className="bg-gray-100 text-gray-800">
-                Energy: {task.energy}
-              </Badge>
-            )}
-          </div>
-          
-          {task.notes && (
-            <p className="mt-2 text-sm text-gray-600 line-clamp-2">{task.notes}</p>
-          )}
-          
-          {task.dueDate && (
-            <div className="mt-3 flex items-center text-sm text-gray-500">
-              <Calendar className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-              <span>{formatDate(task.dueDate)}</span>
+          {/* Expanded content */}
+          {expanded && (
+            <div className="mt-2 pt-2 border-t border-gray-100 space-y-2">
+              {task.notes && (
+                <p className="text-xs text-gray-600">{task.notes}</p>
+              )}
+              
+              <div className="flex flex-wrap gap-1.5">
+                {task.status && (
+                  <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700">
+                    {task.status === "next" ? "Next Action" : 
+                     task.status === "waiting" ? "Waiting For" : 
+                     task.status === "someday" ? "Someday/Maybe" : 
+                     task.status === "project" ? "Project" : 
+                     task.status === "inbox" ? "Inbox" : task.status}
+                  </Badge>
+                )}
+                
+                {task.time && (
+                  <div className="flex items-center text-xs text-gray-500">
+                    <Clock className="mr-0.5 h-3 w-3 text-gray-400" />
+                    <span>{task.time} min</span>
+                  </div>
+                )}
+                
+                {task.energy && (
+                  <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700">
+                    Energy: {task.energy}
+                  </Badge>
+                )}
+                
+                {task.delegatedTo && (
+                  <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700">
+                    To: {task.delegatedTo}
+                  </Badge>
+                )}
+              </div>
             </div>
           )}
         </div>
-        
-        {task.delegatedTo && (
-          <div className="bg-gray-50 px-4 py-2 border-t border-gray-100">
-            <div className="flex items-center text-sm">
-              <span className="text-gray-500 mr-1">Delegated to:</span>
-              <span className="font-medium text-gray-800">{task.delegatedTo}</span>
-            </div>
-          </div>
-        )}
       </Card>
 
       {/* Edit Modal */}
