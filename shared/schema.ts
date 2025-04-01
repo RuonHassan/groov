@@ -16,6 +16,7 @@ export const tasks = pgTable("tasks", {
   delegatedTo: text("delegated_to"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  scheduled: boolean("scheduled").default(false), // Whether the task is scheduled on the calendar
 });
 
 export const insertTaskSchema = createInsertSchema(tasks).omit({
@@ -24,8 +25,62 @@ export const insertTaskSchema = createInsertSchema(tasks).omit({
   updatedAt: true,
 });
 
+// Add custom transformations for date handling in the schema
+export const taskSchema = z.object({
+  id: z.number(),
+  title: z.string(),
+  notes: z.string().nullable(),
+  status: z.string(),
+  context: z.string(),
+  priority: z.string(),
+  dueDate: z.string().nullable().or(z.instanceof(Date).nullable()),
+  time: z.number().nullable(),
+  energy: z.string(),
+  delegatedTo: z.string().nullable(),
+  createdAt: z.instanceof(Date),
+  updatedAt: z.instanceof(Date),
+  scheduled: z.boolean().default(false),
+});
+
 export type InsertTask = z.infer<typeof insertTaskSchema>;
-export type Task = typeof tasks.$inferSelect;
+export type Task = z.infer<typeof taskSchema>;
+
+// Calendar events for time blocking
+export const calendarEvents = pgTable("calendar_events", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id"), // Optional relation to a task (can be null for non-task events)
+  title: text("title").notNull(),
+  start: timestamp("start").notNull(),
+  end: timestamp("end").notNull(),
+  allDay: boolean("all_day").default(false),
+  notes: text("notes"),
+  color: text("color").default("#3b82f6"), // Default color for events
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertCalendarEventSchema = createInsertSchema(calendarEvents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Add custom transformations for date handling in the schema
+export const calendarEventSchema = z.object({
+  id: z.number(),
+  taskId: z.number().nullable(),
+  title: z.string(),
+  start: z.instanceof(Date),
+  end: z.instanceof(Date),
+  allDay: z.boolean().default(false),
+  notes: z.string().nullable(),
+  color: z.string().default("#3b82f6"),
+  createdAt: z.instanceof(Date),
+  updatedAt: z.instanceof(Date),
+});
+
+export type InsertCalendarEvent = z.infer<typeof insertCalendarEventSchema>;
+export type CalendarEvent = z.infer<typeof calendarEventSchema>;
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),

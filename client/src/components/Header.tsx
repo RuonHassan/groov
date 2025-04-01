@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { 
   ChevronLeft,
   ChevronRight,
-  Filter
+  Filter,
+  Calendar
 } from "lucide-react";
 import WeeklyReviewModal from "./WeeklyReviewModal";
 import { format } from "date-fns";
@@ -12,20 +13,49 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import Sidebar from "./Sidebar";
+import { Link, useRoute } from "wouter";
 
 export default function Header() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const today = new Date();
   const formattedDate = format(today, "MMM d");
+  const [isOnCalendar] = useRoute("/calendar");
 
   return (
     <header className="bg-white border-b border-gray-100">
       <div className="w-full mx-auto px-4">
         <div className="flex justify-between items-center h-14">
-          {/* Left side - Date */}
-          <div className="flex items-center">
+          {/* Left side - Date and navigation links */}
+          <div className="flex items-center space-x-4">
             <h1 className="text-2xl font-bold text-gray-900">{formattedDate}</h1>
+            <div className="flex items-center">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost"
+                      size="icon"
+                      asChild
+                      className={`rounded-full ${isOnCalendar ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
+                    >
+                      <Link to={isOnCalendar ? "/" : "/calendar"}>
+                        <Calendar className="h-5 w-5" />
+                      </Link>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isOnCalendar ? 'View Tasks' : 'View Calendar'}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </div>
           
           {/* Right side - User and Navigation */}
