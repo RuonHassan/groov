@@ -174,7 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       if (error instanceof ZodError) {
         return res.status(400).json({ 
-          message: "Invalid calendar event data", 
+          message: "Invalid calendar event data", debug: JSON.stringify(error.errors), 
           errors: error.errors 
         });
       }
@@ -211,7 +211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       if (error instanceof ZodError) {
         return res.status(400).json({ 
-          message: "Invalid calendar event data", 
+          message: "Invalid calendar event data", debug: JSON.stringify(error.errors), 
           errors: error.errors 
         });
       }
