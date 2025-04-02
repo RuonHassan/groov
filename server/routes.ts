@@ -159,22 +159,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new calendar event
   app.post("/api/calendar-events", async (req, res) => {
     try {
+      console.log("Received event data:", JSON.stringify(req.body));
+      
+      // Parse and validate the data
       const validatedData = insertCalendarEventSchema.parse(req.body);
       
+      // Convert string dates to Date objects if needed
+      const eventData = {
+        ...validatedData,
+        start: validatedData.start instanceof Date ? 
+          validatedData.start : new Date(validatedData.start),
+        end: validatedData.end instanceof Date ? 
+          validatedData.end : new Date(validatedData.end),
+      };
+      
+      console.log("Processed event data:", JSON.stringify({
+        ...eventData,
+        start: eventData.start.toISOString(),
+        end: eventData.end.toISOString()
+      }));
+      
       // If a taskId is provided, check if the task exists
-      if (validatedData.taskId) {
-        const task = await storage.getTask(validatedData.taskId);
+      if (eventData.taskId) {
+        const task = await storage.getTask(eventData.taskId);
         if (!task) {
           return res.status(404).json({ message: "Task not found" });
         }
       }
       
-      const newEvent = await storage.createCalendarEvent(validatedData);
+      const newEvent = await storage.createCalendarEvent(eventData);
       res.status(201).json(newEvent);
     } catch (error) {
+      console.error("Calendar event creation error:", error);
       if (error instanceof ZodError) {
         return res.status(400).json({ 
-          message: "Invalid calendar event data", debug: JSON.stringify(error.errors), 
+          message: "Invalid calendar event data", 
+          debug: JSON.stringify(error.errors),
           errors: error.errors 
         });
       }
@@ -190,18 +210,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid calendar event ID" });
       }
 
+      console.log("Updating event data:", JSON.stringify(req.body));
+      
       // Partial validation of the update data
       const validatedData = insertCalendarEventSchema.partial().parse(req.body);
       
+      // Process data - convert string dates to Date objects if provided
+      const eventData: Partial<InsertCalendarEvent> = { ...validatedData };
+      
+      if (eventData.start) {
+        eventData.start = eventData.start instanceof Date ? 
+          eventData.start : new Date(eventData.start);
+      }
+      
+      if (eventData.end) {
+        eventData.end = eventData.end instanceof Date ? 
+          eventData.end : new Date(eventData.end);
+      }
+      
       // If taskId is provided, check if the task exists
-      if (validatedData.taskId) {
-        const task = await storage.getTask(validatedData.taskId);
+      if (eventData.taskId) {
+        const task = await storage.getTask(eventData.taskId);
         if (!task) {
           return res.status(404).json({ message: "Task not found" });
         }
       }
       
-      const updatedEvent = await storage.updateCalendarEvent(id, validatedData);
+      const updatedEvent = await storage.updateCalendarEvent(id, eventData);
       
       if (!updatedEvent) {
         return res.status(404).json({ message: "Calendar event not found" });
@@ -209,9 +244,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(updatedEvent);
     } catch (error) {
+      console.error("Calendar event update error:", error);
       if (error instanceof ZodError) {
         return res.status(400).json({ 
-          message: "Invalid calendar event data", debug: JSON.stringify(error.errors), 
+          message: "Invalid calendar event data", 
+          debug: JSON.stringify(error.errors), 
           errors: error.errors 
         });
       }

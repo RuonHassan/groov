@@ -59,10 +59,15 @@ export const calendarEvents = pgTable("calendar_events", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const insertCalendarEventSchema = createInsertSchema(calendarEvents).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
+// Custom schema with string date handling for calendar events
+export const insertCalendarEventSchema = z.object({
+  taskId: z.number().nullable(),
+  title: z.string(),
+  start: z.string().or(z.instanceof(Date)),
+  end: z.string().or(z.instanceof(Date)),
+  allDay: z.boolean().default(false),
+  notes: z.string().nullable(),
+  color: z.string().default("#3b82f6"),
 });
 
 // Add custom transformations for date handling in the schema
