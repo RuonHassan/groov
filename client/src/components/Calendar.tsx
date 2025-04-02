@@ -46,7 +46,7 @@ const timeSlots = generateTimeSlots();
 // Schema for event form
 const eventFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
-  taskId: z.string().optional(),
+  taskId: z.union([z.literal("none"), z.string().regex(/^\d+$/)]).optional(),
   start: z.string().min(1, "Start time is required"),
   end: z.string().min(1, "End time is required"),
   notes: z.string().optional(),
@@ -74,7 +74,7 @@ export default function Calendar({ tasks, onRefetch }: CalendarProps) {
     resolver: zodResolver(eventFormSchema),
     defaultValues: {
       title: "",
-      taskId: "",
+      taskId: "none",
       start: "",
       end: "",
       notes: "",
@@ -87,7 +87,8 @@ export default function Calendar({ tasks, onRefetch }: CalendarProps) {
     const fetchEvents = async () => {
       try {
         setLoading(true);
-        const result = await apiRequest('/api/calendar-events');
+        const response = await apiRequest('GET', '/api/calendar-events');
+        const result = await response.json();
         setEvents(result as CalendarEvent[]);
       } catch (error) {
         console.error("Error fetching calendar events:", error);
@@ -180,7 +181,7 @@ export default function Calendar({ tasks, onRefetch }: CalendarProps) {
     
     form.reset({
       title: "",
-      taskId: "",
+      taskId: "none",
       start: `${date.toISOString().split('T')[0]}T${slot.hour.toString().padStart(2, '0')}:${slot.minute.toString().padStart(2, '0')}`,
       end: `${date.toISOString().split('T')[0]}T${endTime.hour.toString().padStart(2, '0')}:${endTime.minute.toString().padStart(2, '0')}`,
       notes: "",
@@ -199,7 +200,7 @@ export default function Calendar({ tasks, onRefetch }: CalendarProps) {
 
     form.reset({
       title: event.title,
-      taskId: event.taskId ? event.taskId.toString() : "",
+      taskId: event.taskId ? event.taskId.toString() : "none",
       start: format(startDate, "yyyy-MM-dd'T'HH:mm"),
       end: format(endDate, "yyyy-MM-dd'T'HH:mm"),
       notes: event.notes || "",
@@ -228,7 +229,7 @@ export default function Calendar({ tasks, onRefetch }: CalendarProps) {
       
       const eventData = {
         title: data.title,
-        taskId: data.taskId ? parseInt(data.taskId) : null,
+        taskId: data.taskId && data.taskId !== "none" ? parseInt(data.taskId) : null,
         start: startDate.toISOString(),
         end: endDate.toISOString(),
         notes: data.notes || null,
@@ -237,13 +238,7 @@ export default function Calendar({ tasks, onRefetch }: CalendarProps) {
       
       if (selectedEvent) {
         // Update existing event
-        await apiRequest(`/api/calendar-events/${selectedEvent.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify(eventData),
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
+        const updateResponse = await apiRequest('PATCH', `/api/calendar-events/${selectedEvent.id}`, eventData);
         
         toast({
           title: "Event updated",
@@ -251,13 +246,7 @@ export default function Calendar({ tasks, onRefetch }: CalendarProps) {
         });
       } else {
         // Create new event
-        await apiRequest('/api/calendar-events', {
-          method: 'POST',
-          body: JSON.stringify(eventData),
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
+        const createResponse = await apiRequest('POST', '/api/calendar-events', eventData);
         
         toast({
           title: "Event created",
@@ -266,11 +255,12 @@ export default function Calendar({ tasks, onRefetch }: CalendarProps) {
       }
       
       // Refresh events
-      const result = await apiRequest('/api/calendar-events');
+      const response = await apiRequest('GET', '/api/calendar-events');
+      const result = await response.json();
       setEvents(result as CalendarEvent[]);
       
       // Refresh tasks if an event is linked to a task
-      if (data.taskId) {
+      if (data.taskId && data.taskId !== "none") {
         onRefetch();
       }
       
@@ -290,12 +280,7 @@ export default function Calendar({ tasks, onRefetch }: CalendarProps) {
     if (!selectedEvent) return;
     
     try {
-      await apiRequest(`/api/calendar-events/${selectedEvent.id}`, { 
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const deleteResponse = await apiRequest('DELETE', `/api/calendar-events/${selectedEvent.id}`);
       
       toast({
         title: "Event deleted",
@@ -303,7 +288,8 @@ export default function Calendar({ tasks, onRefetch }: CalendarProps) {
       });
       
       // Refresh events
-      const result = await apiRequest('/api/calendar-events');
+      const response = await apiRequest('GET', '/api/calendar-events');
+      const result = await response.json();
       setEvents(result as CalendarEvent[]);
       
       // Refresh tasks if an event was linked to a task
@@ -488,7 +474,7 @@ export default function Calendar({ tasks, onRefetch }: CalendarProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {tasks
                           .filter(task => task.status !== 'done')
                           .map(task => (
