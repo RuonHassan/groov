@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { 
   CheckCircle, 
-  Pencil,
   Calendar
 } from "lucide-react";
 import { Task } from "@shared/schema";
@@ -21,63 +20,47 @@ export default function TaskCard({ task }: TaskCardProps) {
   const [, setLocation] = useLocation();
 
   // Function to mark a task as completed
-  const handleComplete = async () => {
+  const handleComplete = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent the card click from triggering
     await updateTask(task.id, { status: "done" });
   };
 
   // Function to navigate to calendar with task ID
-  const handleSchedule = () => {
+  const handleSchedule = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent the card click from triggering
     setLocation(`/calendar?taskId=${task.id}`);
+  };
+
+  // Function to open the edit modal
+  const handleCardClick = () => {
+    setShowEditModal(true);
   };
 
   return (
     <>
-      <div className="border-b border-gray-100 w-full">
-        <div className="flex items-center py-4 px-2">
+      <div 
+        className="border-b border-gray-100 w-full hover:bg-gray-50 transition-colors cursor-pointer"
+        onClick={handleCardClick}
+      >
+        <div className="flex items-center py-3 px-2">
           <div className="flex-grow">
-            <h3 className="text-base text-gray-900 leading-tight">
+            <h3 className="text-base text-gray-900 leading-tight truncate">
               {task.title}
             </h3>
-            
-            {/* Show context, priority, and due date if set */}
-            <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-500">
-              {task.context && (
-                <span className="bg-gray-100 px-2 py-0.5 rounded-full">
-                  {task.context}
-                </span>
-              )}
-              
-              {task.priority === "high" && (
-                <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                  High Priority
-                </span>
-              )}
-              
-              {task.dueDate && (
-                <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                  Due: {task.dueDate.toString().slice(0, 10)}
-                </span>
-              )}
-              
-              {task.scheduled && (
-                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                  Scheduled
-                </span>
-              )}
-            </div>
           </div>
           
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center space-x-1 ml-2">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="sm"
                     onClick={handleSchedule}
-                    className="h-8 w-8 rounded-full text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                    className="h-7 px-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
                   >
-                    <Calendar className="h-4 w-4" />
+                    <Calendar className="h-3.5 w-3.5 mr-1" />
+                    <span className="text-xs">Schedule</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -91,29 +74,12 @@ export default function TaskCard({ task }: TaskCardProps) {
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    onClick={() => setShowEditModal(true)}
-                    className="h-8 w-8 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Edit Task</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
+                    size="sm"
                     onClick={handleComplete}
-                    className="h-8 w-8 rounded-full text-green-500 hover:text-green-700 hover:bg-green-50"
+                    className="h-7 px-2 text-green-500 hover:text-green-700 hover:bg-green-50"
                   >
-                    <CheckCircle className="h-4 w-4" />
+                    <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                    <span className="text-xs">Complete</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
