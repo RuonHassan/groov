@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTaskContext } from "@/contexts/TaskContext";
 import TaskCard from "./TaskCard";
+import NewTaskCard from "./NewTaskCard";
 import AddTaskModal from "./AddTaskModal";
 import { Button } from "@/components/ui/button";
 import { 
@@ -44,6 +45,8 @@ export default function TaskGrid() {
           {filteredTasks.map((task) => (
             <TaskCard key={task.id} task={task} />
           ))}
+          {/* New Task Card at the end of the list */}
+          <NewTaskCard />
         </div>
       ) : (
         <div className="py-10 flex flex-col items-center justify-center">
@@ -61,17 +64,6 @@ export default function TaskGrid() {
           </div>
         </div>
       )}
-
-      {/* Floating action button for mobile */}
-      <div className="fixed right-5 bottom-5">
-        <Button 
-          onClick={() => setShowNewTaskModal(true)}
-          className="h-12 w-12 rounded-full shadow-lg"
-          size="icon"
-        >
-          <Plus className="h-5 w-5" />
-        </Button>
-      </div>
 
       {/* Task Modal */}
       <AddTaskModal

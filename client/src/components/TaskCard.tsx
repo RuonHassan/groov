@@ -56,9 +56,9 @@ export default function TaskCard({ task }: TaskCardProps) {
 
   // Handle drag while in progress
   const handleDrag = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    // Calculate drag progress percentage (0-100)
+    // Calculate drag progress percentage (0-100) for leftward movement
     const threshold = 100;
-    const progress = Math.min(Math.max(0, (info.offset.x / threshold) * 100), 100);
+    const progress = Math.min(Math.max(0, (-info.offset.x / threshold) * 100), 100);
     setDragProgress(progress);
   };
 
@@ -66,11 +66,11 @@ export default function TaskCard({ task }: TaskCardProps) {
   const handleDragEnd = async (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const threshold = 100; // minimum drag distance to trigger action
     
-    // If dragged far enough to the right
-    if (info.offset.x > threshold) {
+    // If dragged far enough to the left
+    if (info.offset.x < -threshold) {
       // Move card off screen with animation
       await controls.start({ 
-        x: window.innerWidth,
+        x: -window.innerWidth,
         opacity: 0,
         transition: { duration: 0.3 }
       });
@@ -97,7 +97,7 @@ export default function TaskCard({ task }: TaskCardProps) {
   const getCompletionBackground = () => {
     if (dragProgress <= 0) return {};
     return {
-      background: `linear-gradient(to right, rgba(134, 239, 172, 0.2) 0%, rgba(74, 222, 128, 0.2) ${dragProgress}%, transparent ${dragProgress}%, transparent 100%)`
+      background: `linear-gradient(to left, rgba(134, 239, 172, 0.2) 0%, rgba(74, 222, 128, 0.2) ${dragProgress}%, transparent ${dragProgress}%, transparent 100%)`
     };
   };
 
@@ -107,7 +107,7 @@ export default function TaskCard({ task }: TaskCardProps) {
       <div className="relative w-full overflow-hidden border-b border-gray-100">
         {/* Background color that shows during swipe */}
         <div 
-          className="absolute inset-0 flex items-center justify-end px-4"
+          className="absolute inset-0 flex items-center justify-start px-4"
           style={getCompletionBackground()}
         >
           {dragProgress > 60 && (
@@ -123,7 +123,7 @@ export default function TaskCard({ task }: TaskCardProps) {
           className="bg-white w-full hover:bg-gray-50 transition-colors cursor-pointer relative z-10"
           onClick={handleCardClick}
           drag="x"
-          dragConstraints={{ left: 0, right: 200 }}
+          dragConstraints={{ left: -200, right: 0 }}
           dragElastic={0.1}
           dragTransition={{ bounceStiffness: 600, bounceDamping: 20 }}
           onDragStart={handleDragStart}
