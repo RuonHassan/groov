@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Calendar } from "lucide-react";
 import Header from "@/components/Header";
@@ -6,11 +6,24 @@ import CalendarComponent from "@/components/Calendar";
 import { Task } from "@shared/schema";
 import { useTaskContext } from "@/contexts/TaskContext";
 import { Button } from "@/components/ui/button";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 export default function CalendarPage() {
   const { tasks, isLoading: tasksLoading, error: tasksError } = useTaskContext();
   const [key, setKey] = useState(0); // Used to force refresh calendar
+  const [location] = useLocation();
+  const [scheduledTaskId, setScheduledTaskId] = useState<number | null>(null);
+
+  // Extract task ID from URL if present
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const taskId = params.get("taskId");
+    if (taskId) {
+      setScheduledTaskId(parseInt(taskId));
+    } else {
+      setScheduledTaskId(null);
+    }
+  }, [location]);
 
   // Force refresh function for the calendar
   const handleRefetch = () => {
@@ -64,6 +77,7 @@ export default function CalendarPage() {
           key={key}
           tasks={tasks}
           onRefetch={handleRefetch}
+          scheduledTaskId={scheduledTaskId}
         />
       </main>
     </div>

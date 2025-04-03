@@ -58,9 +58,10 @@ type EventFormValues = z.infer<typeof eventFormSchema>;
 interface CalendarProps {
   tasks: Task[];
   onRefetch: () => void;
+  scheduledTaskId?: number | null;
 }
 
-export default function Calendar({ tasks, onRefetch }: CalendarProps) {
+export default function Calendar({ tasks, onRefetch, scheduledTaskId }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,6 +105,48 @@ export default function Calendar({ tasks, onRefetch }: CalendarProps) {
 
     fetchEvents();
   }, [toast]);
+
+  // Handle auto scheduling when a task ID is provided
+  useEffect(() => {
+    if (scheduledTaskId && tasks.length > 0 && !loading) {
+      // Look up the task
+      const task = tasks.find(t => t.id === scheduledTaskId);
+      if (task) {
+        // Select a default time slot for today (current hour, rounded to nearest 30 min)
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes() >= 30 ? 30 : 0;
+        
+        // Find the matching time slot
+        const slot = timeSlots.find(s => s.hour === currentHour && s.minute === currentMinute) || timeSlots[0];
+        
+        if (slot) {
+          // Calculate end time (1 hour after start time)
+          const endTime = { ...slot };
+          if (slot.minute === 30) {
+            endTime.hour += 1;
+            endTime.minute = 0;
+          } else {
+            endTime.minute = 30;
+          }
+          
+          // Pre-fill the form with task details
+          form.reset({
+            title: task.title,
+            taskId: task.id.toString(),
+            start: `${now.toISOString().split('T')[0]}T${slot.hour.toString().padStart(2, '0')}:${slot.minute.toString().padStart(2, '0')}`,
+            end: `${now.toISOString().split('T')[0]}T${endTime.hour.toString().padStart(2, '0')}:${endTime.minute.toString().padStart(2, '0')}`,
+            notes: task.notes || "",
+            color: "#3b82f6",
+          });
+          
+          setSelectedSlot({ date: now, slot });
+          setSelectedEvent(null);
+          setShowEventForm(true);
+        }
+      }
+    }
+  }, [scheduledTaskId, tasks, loading, form]);
 
   // Calculate week range
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Week starts on Monday
