@@ -71,10 +71,13 @@ export class MemStorage implements IStorage {
     this.forestTreeCurrentId = 1;
 
     // Add example tasks
-    this.setupExampleData();
+    // Call the async setup function
+    (async () => {
+      await this.setupExampleData();
+    })();
   }
 
-  private setupExampleData() {
+  private async setupExampleData() {
     // Example tasks
     const exampleTasks: InsertTask[] = [
       {
@@ -198,6 +201,76 @@ export class MemStorage implements IStorage {
     exampleEvents.forEach(async (event) => {
       await this.createCalendarEvent(event);
     });
+    
+    // Create example pomodoro sessions
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(today.getDate() - 3);
+    
+    // First create a default user if not exists
+    if (!this.users.size) {
+      const defaultUser: InsertUser = {
+        username: "default",
+        password: "password",
+      };
+      await this.createUser(defaultUser);
+    }
+    
+    // Create pomodoro sessions
+    const exampleSessions: InsertPomodoroSession[] = [
+      {
+        userId: 1,
+        taskId: 1, // Review quarterly reports
+        duration: 25,
+        status: "completed",
+        startTime: new Date(new Date(yesterday).setHours(10, 0, 0)),
+        endTime: new Date(new Date(yesterday).setHours(10, 25, 0)),
+      },
+      {
+        userId: 1,
+        taskId: 3, // Replace kitchen light bulbs
+        duration: 25,
+        status: "completed",
+        startTime: new Date(new Date(yesterday).setHours(14, 0, 0)),
+        endTime: new Date(new Date(yesterday).setHours(14, 25, 0)),
+      },
+      {
+        userId: 1,
+        taskId: 7, // Update resume
+        duration: 25,
+        status: "completed",
+        startTime: new Date(new Date(threeDaysAgo).setHours(9, 0, 0)),
+        endTime: new Date(new Date(threeDaysAgo).setHours(9, 25, 0)),
+      }
+    ];
+    
+    // Create sessions and trees
+    const treeTypes = ["oak", "pine", "cherry", "maple"];
+    let sessionIndex = 0;
+    
+    for (const session of exampleSessions) {
+      const createdSession = await this.createPomodoroSession(session);
+      
+      // Create a tree for each completed session
+      const treeType = treeTypes[sessionIndex % treeTypes.length];
+      // Ensure endTime is a valid Date for plantedAt
+      const plantDate = new Date(); // Default to now
+      if (createdSession.endTime) {
+        // Use the session end time
+        plantDate.setTime(createdSession.endTime.getTime());
+      }
+      await this.createForestTree({
+        userId: 1,
+        pomodoroSessionId: createdSession.id,
+        treeType: treeType,
+        growthStage: 100,
+        plantedAt: plantDate,
+      });
+      
+      sessionIndex++;
+    }
   }
 
   // User methods

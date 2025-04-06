@@ -471,6 +471,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Forest Tree Routes
   // =================
   
+  // Get all forest trees
+  app.get("/api/forest-trees", async (req, res) => {
+    try {
+      // Since we know we have one default user with ID 1, just get all trees for that user for now
+      const trees = await storage.getForestTrees(1);
+      res.json(trees);
+    } catch (error) {
+      res.status(500).json({ message: "Error retrieving forest trees" });
+    }
+  });
+  
   // Get all forest trees for a user
   app.get("/api/users/:userId/forest-trees", async (req, res) => {
     try {
