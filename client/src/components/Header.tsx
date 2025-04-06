@@ -4,7 +4,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
-  Calendar
+  Calendar,
+  Timer
 } from "lucide-react";
 import WeeklyReviewModal from "./WeeklyReviewModal";
 import { format } from "date-fns";
@@ -27,6 +28,7 @@ export default function Header() {
   const today = new Date();
   const formattedDate = format(today, "MMM d");
   const [isOnCalendar] = useRoute("/calendar");
+  const [isOnPomodoro] = useRoute("/pomodoro");
 
   return (
     <header className="bg-white border-b border-gray-100">
@@ -35,7 +37,7 @@ export default function Header() {
           {/* Left side - Date and navigation links */}
           <div className="flex items-center space-x-4">
             <h1 className="text-2xl font-bold text-gray-900">{formattedDate}</h1>
-            <div className="flex items-center">
+            <div className="flex items-center space-x-2">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -52,6 +54,26 @@ export default function Header() {
                   </TooltipTrigger>
                   <TooltipContent>
                     {isOnCalendar ? 'View Tasks' : 'View Calendar'}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost"
+                      size="icon"
+                      asChild
+                      className={`rounded-full ${isOnPomodoro ? 'bg-green-100 text-green-700' : 'text-gray-700 hover:bg-gray-100'}`}
+                    >
+                      <Link to={isOnPomodoro ? "/" : "/pomodoro"}>
+                        <Timer className="h-5 w-5" />
+                      </Link>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isOnPomodoro ? 'View Tasks' : 'Pomodoro Timer'}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

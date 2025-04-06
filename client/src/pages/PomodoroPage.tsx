@@ -23,6 +23,7 @@ import {
   Flower2 
 } from "lucide-react";
 import type { Task, PomodoroSession, ForestTree } from "@shared/schema";
+import Header from "@/components/Header";
 
 const userId = 1; // For demo, hardcoded user ID
 
@@ -338,370 +339,367 @@ export default function PomodoroPage() {
   );
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6">Pomodoro Forest</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2">
-          <Tabs defaultValue="timer" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-4 grid grid-cols-3">
-              <TabsTrigger value="timer">
-                <Clock className="h-4 w-4 mr-2" />
-                Timer
-              </TabsTrigger>
-              <TabsTrigger value="settings">
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
-              </TabsTrigger>
-              <TabsTrigger value="forest">
-                <Trees className="h-4 w-4 mr-2" />
-                My Forest
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="timer" className="space-y-4">
-              <Card>
-                <CardHeader className="text-center pb-2">
-                  <CardTitle className="text-2xl">
-                    {mode === "pomodoro" ? "Focus Time" : mode === "shortBreak" ? "Short Break" : "Long Break"}
-                  </CardTitle>
-                  <CardDescription>
-                    {mode === "pomodoro" 
-                      ? "Stay focused on your task" 
-                      : "Take a break and relax"}
-                  </CardDescription>
-                </CardHeader>
+    <div className="min-h-screen flex flex-col bg-white text-gray-800">
+      <Header />
+      <div className="container mx-auto py-8 flex-1">
+        <h1 className="text-3xl font-bold mb-6">Pomodoro Forest</h1>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-2">
+            <Tabs defaultValue="timer" value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="mb-4 grid grid-cols-3">
+                <TabsTrigger value="timer">
+                  <Clock className="h-4 w-4 mr-2" />
+                  Timer
+                </TabsTrigger>
+                <TabsTrigger value="settings">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
+                </TabsTrigger>
+                <TabsTrigger value="forest">
+                  <Trees className="h-4 w-4 mr-2" />
+                  My Forest
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="timer" className="space-y-4">
+                <Card>
+                  <CardHeader className="text-center pb-2">
+                    <CardTitle className="text-2xl">
+                      {mode === "pomodoro" ? "Focus Time" : mode === "shortBreak" ? "Short Break" : "Long Break"}
+                    </CardTitle>
+                    <CardDescription>
+                      {mode === "pomodoro" 
+                        ? "Stay focused on your task" 
+                        : "Take a break and relax"}
+                    </CardDescription>
+                  </CardHeader>
+                  
+                  <CardContent className="space-y-4">
+                    <div className="text-center">
+                      <h1 className="text-6xl font-bold font-mono tracking-widest">
+                        {formatTime(timeLeft)}
+                      </h1>
+                    </div>
+                    
+                    <Progress value={getProgress()} className="h-2 w-full" />
+                    
+                    {mode === "pomodoro" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="task-select">Working on</Label>
+                        <Select 
+                          value={selectedTask?.toString() || "0"} 
+                          onValueChange={(value) => setSelectedTask(value !== "0" ? parseInt(value) : null)}
+                          disabled={isRunning || !!currentSession}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a task (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="0">No specific task</SelectItem>
+                            {filteredTasks.map((task: Task) => (
+                              <SelectItem key={task.id} value={task.id.toString()}>
+                                {task.title}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </CardContent>
+                  
+                  <CardFooter className="flex justify-center gap-2 flex-wrap">
+                    {!isRunning ? (
+                      <Button onClick={startTimer} size="lg" className="gap-2">
+                        <PlayCircle className="h-5 w-5" />
+                        Start
+                      </Button>
+                    ) : (
+                      <Button onClick={pauseTimer} size="lg" variant="secondary" className="gap-2">
+                        <PauseCircle className="h-5 w-5" />
+                        Pause
+                      </Button>
+                    )}
+                    
+                    <Button onClick={resetTimer} variant="outline" size="lg" className="gap-2">
+                      <RotateCcw className="h-5 w-5" />
+                      Reset
+                    </Button>
+                    
+                    <Button onClick={skipToNext} variant="outline" size="lg" className="gap-2">
+                      <TimerReset className="h-5 w-5" />
+                      Skip
+                    </Button>
+                  </CardFooter>
+                </Card>
                 
-                <CardContent className="space-y-4">
-                  <div className="text-center">
-                    <h1 className="text-6xl font-bold font-mono tracking-widest">
-                      {formatTime(timeLeft)}
-                    </h1>
-                  </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <Card className={cn("cursor-pointer", mode === "pomodoro" ? "border-primary bg-primary/10" : "")}
+                    onClick={() => {
+                      if (!isRunning) {
+                        setMode("pomodoro");
+                      }
+                    }}
+                  >
+                    <CardHeader className="text-center p-4">
+                      <CardTitle className="text-xl">Pomodoro</CardTitle>
+                      <CardDescription>{settings.pomodoroTime} min</CardDescription>
+                    </CardHeader>
+                  </Card>
                   
-                  <Progress value={getProgress()} className="h-2 w-full" />
+                  <Card className={cn("cursor-pointer", mode === "shortBreak" ? "border-primary bg-primary/10" : "")}
+                    onClick={() => {
+                      if (!isRunning) {
+                        setMode("shortBreak");
+                      }
+                    }}
+                  >
+                    <CardHeader className="text-center p-4">
+                      <CardTitle className="text-xl">Short Break</CardTitle>
+                      <CardDescription>{settings.shortBreakTime} min</CardDescription>
+                    </CardHeader>
+                  </Card>
                   
-                  {mode === "pomodoro" && (
-                    <div className="space-y-2">
-                      <Label htmlFor="task-select">Working on</Label>
+                  <Card className={cn("cursor-pointer", mode === "longBreak" ? "border-primary bg-primary/10" : "")}
+                    onClick={() => {
+                      if (!isRunning) {
+                        setMode("longBreak");
+                      }
+                    }}
+                  >
+                    <CardHeader className="text-center p-4">
+                      <CardTitle className="text-xl">Long Break</CardTitle>
+                      <CardDescription>{settings.longBreakTime} min</CardDescription>
+                    </CardHeader>
+                  </Card>
+                </div>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Session Stats</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <p className="text-muted-foreground text-sm">Completed</p>
+                        <p className="text-2xl font-bold">{completedPomodoros}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground text-sm">Trees</p>
+                        <p className="text-2xl font-bold">{forestTrees?.length || 0}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground text-sm">Today's Focus</p>
+                        <p className="text-2xl font-bold">
+                          {userSessions
+                            ? Math.round(userSessions
+                                .filter(s => s.status === "completed" && new Date(s.startTime).toDateString() === new Date().toDateString())
+                                .reduce((acc, s) => acc + s.duration, 0))
+                            : 0} min
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="settings">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Timer Settings</CardTitle>
+                    <CardDescription>Customize your pomodoro timer</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="pomodoro-time">Pomodoro Length (minutes)</Label>
                       <Select 
-                        value={selectedTask?.toString() || "0"} 
-                        onValueChange={(value) => setSelectedTask(value !== "0" ? parseInt(value) : null)}
-                        disabled={isRunning || !!currentSession}
+                        value={settings.pomodoroTime.toString()} 
+                        onValueChange={(value) => setSettings(prev => ({ ...prev, pomodoroTime: parseInt(value) }))}
+                        disabled={isRunning}
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a task (optional)" />
+                        <SelectTrigger id="pomodoro-time">
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="0">No specific task</SelectItem>
-                          {filteredTasks.map((task: Task) => (
-                            <SelectItem key={task.id} value={task.id.toString()}>
-                              {task.title}
-                            </SelectItem>
+                          {[15, 20, 25, 30, 35, 40, 45, 50, 55, 60].map(value => (
+                            <SelectItem key={value} value={value.toString()}>{value}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
-                  )}
-                </CardContent>
-                
-                <CardFooter className="flex justify-center gap-2 flex-wrap">
-                  {!isRunning ? (
-                    <Button onClick={startTimer} size="lg" className="gap-2">
-                      <PlayCircle className="h-5 w-5" />
-                      Start
-                    </Button>
-                  ) : (
-                    <Button onClick={pauseTimer} size="lg" variant="secondary" className="gap-2">
-                      <PauseCircle className="h-5 w-5" />
-                      Pause
-                    </Button>
-                  )}
-                  
-                  <Button onClick={resetTimer} variant="outline" size="lg" className="gap-2">
-                    <RotateCcw className="h-5 w-5" />
-                    Reset
-                  </Button>
-                  
-                  <Button onClick={skipToNext} variant="outline" size="lg" className="gap-2">
-                    <TimerReset className="h-5 w-5" />
-                    Skip
-                  </Button>
-                </CardFooter>
-              </Card>
-              
-              <div className="grid grid-cols-3 gap-4">
-                <Card className={cn("cursor-pointer", mode === "pomodoro" ? "border-primary bg-primary/10" : "")}
-                  onClick={() => {
-                    if (!isRunning) {
-                      setMode("pomodoro");
-                    }
-                  }}
-                >
-                  <CardHeader className="text-center p-4">
-                    <CardTitle className="text-xl">Pomodoro</CardTitle>
-                    <CardDescription>{settings.pomodoroTime} min</CardDescription>
-                  </CardHeader>
-                </Card>
-                
-                <Card className={cn("cursor-pointer", mode === "shortBreak" ? "border-primary bg-primary/10" : "")}
-                  onClick={() => {
-                    if (!isRunning) {
-                      setMode("shortBreak");
-                    }
-                  }}
-                >
-                  <CardHeader className="text-center p-4">
-                    <CardTitle className="text-xl">Short Break</CardTitle>
-                    <CardDescription>{settings.shortBreakTime} min</CardDescription>
-                  </CardHeader>
-                </Card>
-                
-                <Card className={cn("cursor-pointer", mode === "longBreak" ? "border-primary bg-primary/10" : "")}
-                  onClick={() => {
-                    if (!isRunning) {
-                      setMode("longBreak");
-                    }
-                  }}
-                >
-                  <CardHeader className="text-center p-4">
-                    <CardTitle className="text-xl">Long Break</CardTitle>
-                    <CardDescription>{settings.longBreakTime} min</CardDescription>
-                  </CardHeader>
-                </Card>
-              </div>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Session Stats</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <p className="text-muted-foreground text-sm">Completed</p>
-                      <p className="text-2xl font-bold">{completedPomodoros}</p>
+                    
+                    <div className="space-y-1">
+                      <Label htmlFor="short-break-time">Short Break Length (minutes)</Label>
+                      <Select 
+                        value={settings.shortBreakTime.toString()} 
+                        onValueChange={(value) => setSettings(prev => ({ ...prev, shortBreakTime: parseInt(value) }))}
+                        disabled={isRunning}
+                      >
+                        <SelectTrigger id="short-break-time">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[3, 4, 5, 6, 7, 8, 9, 10].map(value => (
+                            <SelectItem key={value} value={value.toString()}>{value}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div>
-                      <p className="text-muted-foreground text-sm">Trees</p>
-                      <p className="text-2xl font-bold">{forestTrees?.length || 0}</p>
+                    
+                    <div className="space-y-1">
+                      <Label htmlFor="long-break-time">Long Break Length (minutes)</Label>
+                      <Select 
+                        value={settings.longBreakTime.toString()} 
+                        onValueChange={(value) => setSettings(prev => ({ ...prev, longBreakTime: parseInt(value) }))}
+                        disabled={isRunning}
+                      >
+                        <SelectTrigger id="long-break-time">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[10, 15, 20, 25, 30].map(value => (
+                            <SelectItem key={value} value={value.toString()}>{value}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div>
-                      <p className="text-muted-foreground text-sm">Today's Focus</p>
-                      <p className="text-2xl font-bold">
-                        {userSessions
-                          ? Math.round(userSessions
-                              .filter(s => s.status === "completed" && new Date(s.startTime).toDateString() === new Date().toDateString())
-                              .reduce((acc, s) => acc + s.duration, 0))
-                          : 0} min
-                      </p>
+                    
+                    <div className="space-y-1">
+                      <Label htmlFor="long-break-interval">Long Break Interval (pomodoros)</Label>
+                      <Select 
+                        value={settings.longBreakInterval.toString()} 
+                        onValueChange={(value) => setSettings(prev => ({ ...prev, longBreakInterval: parseInt(value) }))}
+                      >
+                        <SelectTrigger id="long-break-interval">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[2, 3, 4, 5, 6].map(value => (
+                            <SelectItem key={value} value={value.toString()}>{value}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            <TabsContent value="settings">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Timer Settings</CardTitle>
-                  <CardDescription>Customize your pomodoro timer</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-1">
-                    <Label htmlFor="pomodoro-time">Pomodoro Length (minutes)</Label>
-                    <Select 
-                      value={settings.pomodoroTime.toString()} 
-                      onValueChange={(value) => setSettings(prev => ({ ...prev, pomodoroTime: parseInt(value) }))}
-                      disabled={isRunning}
-                    >
-                      <SelectTrigger id="pomodoro-time">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[15, 20, 25, 30, 35, 40, 45, 50, 55, 60].map(value => (
-                          <SelectItem key={value} value={value.toString()}>{value}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <Label htmlFor="short-break-time">Short Break Length (minutes)</Label>
-                    <Select 
-                      value={settings.shortBreakTime.toString()} 
-                      onValueChange={(value) => setSettings(prev => ({ ...prev, shortBreakTime: parseInt(value) }))}
-                      disabled={isRunning}
-                    >
-                      <SelectTrigger id="short-break-time">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[3, 4, 5, 6, 7, 8, 9, 10].map(value => (
-                          <SelectItem key={value} value={value.toString()}>{value}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <Label htmlFor="long-break-time">Long Break Length (minutes)</Label>
-                    <Select 
-                      value={settings.longBreakTime.toString()} 
-                      onValueChange={(value) => setSettings(prev => ({ ...prev, longBreakTime: parseInt(value) }))}
-                      disabled={isRunning}
-                    >
-                      <SelectTrigger id="long-break-time">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[10, 15, 20, 25, 30].map(value => (
-                          <SelectItem key={value} value={value.toString()}>{value}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <Label htmlFor="long-break-interval">Long Break Interval (pomodoros)</Label>
-                    <Select 
-                      value={settings.longBreakInterval.toString()} 
-                      onValueChange={(value) => setSettings(prev => ({ ...prev, longBreakInterval: parseInt(value) }))}
-                    >
-                      <SelectTrigger id="long-break-interval">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[2, 3, 4, 5, 6].map(value => (
-                          <SelectItem key={value} value={value.toString()}>{value}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="auto-start-breaks">Auto-start Breaks</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Automatically start breaks after completing a pomodoro
-                      </p>
-                    </div>
-                    <Switch 
-                      id="auto-start-breaks"
-                      checked={settings.autoStartBreaks}
-                      onCheckedChange={(checked) => 
-                        setSettings(prev => ({ ...prev, autoStartBreaks: checked }))
-                      }
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="auto-start-pomodoros">Auto-start Pomodoros</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Automatically start pomodoros after completing a break
-                      </p>
-                    </div>
-                    <Switch 
-                      id="auto-start-pomodoros"
-                      checked={settings.autoStartPomodoros}
-                      onCheckedChange={(checked) => 
-                        setSettings(prev => ({ ...prev, autoStartPomodoros: checked }))
-                      }
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            <TabsContent value="forest">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Your Forest</CardTitle>
-                  <CardDescription>
-                    {forestTrees?.length 
-                      ? `You've grown ${forestTrees.length} trees in your forest.`
-                      : "Complete pomodoros to grow trees in your forest."}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {forestTrees?.length === 0 ? (
-                    <div className="text-center py-8">
-                      <Trees className="h-16 w-16 mx-auto text-muted-foreground opacity-20" />
-                      <p className="mt-4 text-muted-foreground">Your forest is empty. Complete pomodoros to plant trees!</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                      {forestTrees?.map((tree) => (
-                        <div key={tree.id} className="text-center group">
-                          <div className="bg-primary/5 aspect-square rounded-md flex items-center justify-center p-2 group-hover:bg-primary/10 transition-colors">
-                            {tree.treeType === "oak" && <Trees className="h-10 w-10 text-primary" />}
-                            {tree.treeType === "pine" && <PalmtreeIcon className="h-10 w-10 text-green-600" />}
-                            {tree.treeType === "cherry" && <Flower2 className="h-10 w-10 text-pink-500" />}
-                            {tree.treeType === "maple" && <Trees className="h-10 w-10 text-orange-500" />}
-                          </div>
-                          <p className="text-xs mt-1 capitalize">{tree.treeType}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(tree.plantedAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
-        
-        <div>
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Task List</CardTitle>
-                <Button variant="outline" size="sm" className="gap-1">
-                  <List className="h-4 w-4" />
-                  All Tasks
-                </Button>
-              </div>
-              <CardDescription>Select a task to work on</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {filteredTasks.length === 0 ? (
-                <div className="text-center py-4">
-                  <p className="text-muted-foreground text-sm">No tasks found</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {filteredTasks.map((task: Task) => (
-                    <div 
-                      key={task.id}
-                      className={cn(
-                        "p-3 border rounded-md cursor-pointer hover:bg-accent",
-                        selectedTask === task.id && "border-primary bg-primary/5"
-                      )}
-                      onClick={() => {
-                        if (!isRunning && !currentSession) {
-                          setSelectedTask(task.id);
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="auto-start-breaks">Auto-start Breaks</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Automatically start breaks after completing a pomodoro
+                        </p>
+                      </div>
+                      <Switch 
+                        id="auto-start-breaks"
+                        checked={settings.autoStartBreaks}
+                        onCheckedChange={(checked) => 
+                          setSettings(prev => ({ ...prev, autoStartBreaks: checked }))
                         }
-                      }}
-                    >
-                      <h4 className="font-medium text-sm">{task.title}</h4>
-                      <div className="flex justify-between mt-1">
-                        <span className="text-xs text-muted-foreground">
-                          {task.context}
-                        </span>
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="auto-start-pomodoros">Auto-start Pomodoros</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Automatically start pomodoros after completing a break
+                        </p>
+                      </div>
+                      <Switch 
+                        id="auto-start-pomodoros"
+                        checked={settings.autoStartPomodoros}
+                        onCheckedChange={(checked) => 
+                          setSettings(prev => ({ ...prev, autoStartPomodoros: checked }))
+                        }
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="forest">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Your Forest</CardTitle>
+                    <CardDescription>
+                      {forestTrees?.length 
+                        ? `You've grown ${forestTrees.length} trees in your forest.`
+                        : "Complete pomodoros to grow trees in your forest."}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {forestTrees?.length === 0 ? (
+                      <div className="text-center py-8">
+                        <Trees className="h-16 w-16 mx-auto text-muted-foreground opacity-20" />
+                        <p className="mt-4 text-muted-foreground">Your forest is empty. Complete pomodoros to plant trees!</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                        {forestTrees?.map((tree) => (
+                          <div key={tree.id} className="text-center group">
+                            <div className="bg-primary/5 aspect-square rounded-md flex items-center justify-center p-2 group-hover:bg-primary/10 transition-colors">
+                              {tree.treeType === "oak" && <Trees className="h-10 w-10 text-primary" />}
+                              {tree.treeType === "pine" && <PalmtreeIcon className="h-10 w-10 text-green-600" />}
+                              {tree.treeType === "cherry" && <Flower2 className="h-10 w-10 text-pink-500" />}
+                              {tree.treeType === "maple" && <Trees className="h-10 w-10 text-orange-500" />}
+                            </div>
+                            <p className="text-xs mt-1 capitalize">{tree.treeType}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(tree.plantedAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+          
+          <div>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">Task List</CardTitle>
+                  <Button variant="outline" size="sm" className="gap-1">
+                    <List className="h-4 w-4" />
+                    All Tasks
+                  </Button>
+                </div>
+                <CardDescription>Select a task to work on</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {filteredTasks.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-muted-foreground text-sm">No tasks found</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredTasks.map((task: Task) => (
+                      <div 
+                        key={task.id}
+                        className={cn(
+                          "p-3 rounded-lg border flex items-center justify-between cursor-pointer hover:bg-primary/5 transition-colors",
+                          selectedTask === task.id ? "border-primary bg-primary/10" : "border-border"
+                        )}
+                        onClick={() => !isRunning && !currentSession && setSelectedTask(task.id)}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium truncate">{task.title}</h3>
+                        </div>
                         {task.time && (
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-sm text-muted-foreground flex items-center ml-2">
+                            <Clock className="h-3 w-3 mr-1" />
                             {task.time} min
                           </span>
                         )}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
