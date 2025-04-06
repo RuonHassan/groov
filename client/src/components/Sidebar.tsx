@@ -9,7 +9,9 @@ import {
   Archive, 
   Sparkles,
   Filter,
-  X
+  X,
+  Timer,
+  CalendarDays
 } from "lucide-react";
 import {
   Sheet,
@@ -17,6 +19,7 @@ import {
   SheetTrigger,
   SheetClose
 } from "@/components/ui/sheet";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
   Accordion,
@@ -26,6 +29,7 @@ import {
 } from "@/components/ui/accordion";
 
 export default function Sidebar() {
+  const [location] = useLocation();
   const { 
     currentView, 
     setCurrentView, 
@@ -346,6 +350,48 @@ export default function Sidebar() {
     </Sheet>
   );
 
+  // Tools/App navigation section
+  const ToolsNavigation = () => (
+    <div className="bg-white rounded-lg shadow mb-6 overflow-hidden">
+      <div className="px-4 py-5">
+        <h2 className="text-lg font-medium text-gray-900">Tools</h2>
+      </div>
+      <div className="border-t border-gray-200 px-4 py-4">
+        <div className="space-y-1">
+          <Link href="/calendar">
+            <div className={cn(
+              "w-full flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer",
+              location === "/calendar" 
+                ? "bg-primary-50 text-primary-700" 
+                : "text-gray-600 hover:bg-gray-50"
+            )}>
+              <CalendarDays className={cn(
+                "mr-3 h-5 w-5",
+                location === "/calendar" ? "text-primary-500" : "text-gray-400"
+              )} />
+              Calendar
+            </div>
+          </Link>
+          
+          <Link href="/pomodoro">
+            <div className={cn(
+              "w-full flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer",
+              location === "/pomodoro" 
+                ? "bg-primary-50 text-primary-700" 
+                : "text-gray-600 hover:bg-gray-50"
+            )}>
+              <Timer className={cn(
+                "mr-3 h-5 w-5",
+                location === "/pomodoro" ? "text-primary-500" : "text-gray-400"
+              )} />
+              Pomodoro Forest
+            </div>
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <>
       {/* Mobile filters button */}
@@ -356,6 +402,8 @@ export default function Sidebar() {
       {/* Desktop sidebar */}
       <aside className="hidden md:block md:w-64 md:mr-8 mb-6 md:mb-0">
         <nav className="space-y-1 sticky top-6">
+          <ToolsNavigation />
+          
           <div className="bg-white rounded-lg shadow mb-6 overflow-hidden">
             <div className="px-4 py-5">
               <h2 className="text-lg font-medium text-gray-900">Filters</h2>

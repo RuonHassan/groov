@@ -2,7 +2,9 @@ import {
   tasks, type Task, type InsertTask,
   calendarEvents, type CalendarEvent, type InsertCalendarEvent,
   users, type User, type InsertUser,
-  taskSchema, calendarEventSchema
+  pomodoroSessions, type PomodoroSession, type InsertPomodoroSession,
+  forestTrees, type ForestTree, type InsertForestTree,
+  taskSchema, calendarEventSchema, pomodoroSessionSchema, forestTreeSchema, userSchema
 } from "@shared/schema";
 
 // Modify the interface with all CRUD methods needed for the GTD app
@@ -11,6 +13,7 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, user: Partial<User>): Promise<User | undefined>;
   
   // Task methods
   getTasks(): Promise<Task[]>;
@@ -26,23 +29,46 @@ export interface IStorage {
   createCalendarEvent(event: InsertCalendarEvent): Promise<CalendarEvent>;
   updateCalendarEvent(id: number, event: Partial<InsertCalendarEvent>): Promise<CalendarEvent | undefined>;
   deleteCalendarEvent(id: number): Promise<boolean>;
+  
+  // Pomodoro methods
+  getPomodoroSessions(userId: number): Promise<PomodoroSession[]>;
+  getPomodoroSession(id: number): Promise<PomodoroSession | undefined>;
+  getTaskPomodoroSessions(taskId: number): Promise<PomodoroSession[]>;
+  createPomodoroSession(session: InsertPomodoroSession): Promise<PomodoroSession>;
+  updatePomodoroSession(id: number, session: Partial<InsertPomodoroSession>): Promise<PomodoroSession | undefined>;
+  deletePomodoroSession(id: number): Promise<boolean>;
+  
+  // Forest methods
+  getForestTrees(userId: number): Promise<ForestTree[]>;
+  getForestTree(id: number): Promise<ForestTree | undefined>;
+  createForestTree(tree: InsertForestTree): Promise<ForestTree>;
+  updateForestTree(id: number, tree: Partial<InsertForestTree>): Promise<ForestTree | undefined>;
+  deleteForestTree(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private tasks: Map<number, Task>;
   private calendarEvents: Map<number, CalendarEvent>;
+  private pomodoroSessions: Map<number, PomodoroSession>;
+  private forestTrees: Map<number, ForestTree>;
   private userCurrentId: number;
   private taskCurrentId: number;
   private calendarEventCurrentId: number;
+  private pomodoroSessionCurrentId: number;
+  private forestTreeCurrentId: number;
 
   constructor() {
     this.users = new Map();
     this.tasks = new Map();
     this.calendarEvents = new Map();
+    this.pomodoroSessions = new Map();
+    this.forestTrees = new Map();
     this.userCurrentId = 1;
     this.taskCurrentId = 1;
     this.calendarEventCurrentId = 1;
+    this.pomodoroSessionCurrentId = 1;
+    this.forestTreeCurrentId = 1;
 
     // Add example tasks
     this.setupExampleData();
@@ -144,7 +170,8 @@ export class MemStorage implements IStorage {
         start: new Date(new Date(tomorrow).setHours(10, 0, 0)),
         end: new Date(new Date(tomorrow).setHours(11, 0, 0)),
         notes: "Block time to review the quarterly reports",
-        color: "#3b82f6"
+        color: "#3b82f6",
+        allDay: false
       },
       {
         taskId: 7, // Update resume
@@ -152,15 +179,18 @@ export class MemStorage implements IStorage {
         start: new Date(new Date(tomorrow).setHours(14, 0, 0)),
         end: new Date(new Date(tomorrow).setHours(15, 0, 0)),
         notes: "Work on resume updates",
-        color: "#2563eb"
+        color: "#2563eb",
+        allDay: false
       },
       {
         // Stand-alone event (no task)
+        taskId: null,
         title: "Team Meeting",
         start: new Date(new Date(today).setHours(15, 0, 0)),
         end: new Date(new Date(today).setHours(16, 0, 0)),
         notes: "Weekly team sync",
-        color: "#10b981"
+        color: "#10b981",
+        allDay: false
       }
     ];
     
@@ -183,9 +213,43 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userCurrentId++;
-    const user: User = { ...insertUser, id };
+    const now = new Date();
+    
+    // Create user with proper typing including the new fields
+    const user: User = { 
+      id, 
+      username: insertUser.username,
+      password: insertUser.password,
+      totalPomodoros: 0,
+      totalTrees: 0,
+      streakDays: 0,
+      createdAt: now,
+      updatedAt: now
+    };
+    
     this.users.set(id, user);
     return user;
+  }
+  
+  async updateUser(id: number, userUpdate: Partial<User>): Promise<User | undefined> {
+    const existingUser = this.users.get(id);
+    if (!existingUser) {
+      return undefined;
+    }
+    
+    // Create updated user with properly typed fields
+    const updatedUser: User = {
+      ...existingUser,
+      username: userUpdate.username || existingUser.username,
+      password: userUpdate.password || existingUser.password,
+      totalPomodoros: userUpdate.totalPomodoros !== undefined ? userUpdate.totalPomodoros : existingUser.totalPomodoros,
+      totalTrees: userUpdate.totalTrees !== undefined ? userUpdate.totalTrees : existingUser.totalTrees,
+      streakDays: userUpdate.streakDays !== undefined ? userUpdate.streakDays : existingUser.streakDays,
+      updatedAt: new Date()
+    };
+    
+    this.users.set(id, updatedUser);
+    return updatedUser;
   }
 
   // Task methods
@@ -215,7 +279,7 @@ export class MemStorage implements IStorage {
       delegatedTo: insertTask.delegatedTo || null,
       createdAt: now,
       updatedAt: now,
-      scheduled: insertTask.scheduled || false
+      scheduled: !!insertTask.scheduled
     };
     
     this.tasks.set(id, task);
@@ -240,7 +304,7 @@ export class MemStorage implements IStorage {
       time: taskUpdate.time !== undefined ? taskUpdate.time : existingTask.time,
       energy: taskUpdate.energy || existingTask.energy,
       delegatedTo: taskUpdate.delegatedTo !== undefined ? taskUpdate.delegatedTo : existingTask.delegatedTo,
-      scheduled: taskUpdate.scheduled !== undefined ? taskUpdate.scheduled : existingTask.scheduled,
+      scheduled: taskUpdate.scheduled !== undefined ? !!taskUpdate.scheduled : existingTask.scheduled, // Ensure boolean
       updatedAt: new Date()
     };
     
@@ -346,6 +410,189 @@ export class MemStorage implements IStorage {
     }
     
     return this.calendarEvents.delete(id);
+  }
+  
+  // Pomodoro methods
+  async getPomodoroSessions(userId: number): Promise<PomodoroSession[]> {
+    return Array.from(this.pomodoroSessions.values())
+      .filter(session => session.userId === userId);
+  }
+  
+  async getPomodoroSession(id: number): Promise<PomodoroSession | undefined> {
+    return this.pomodoroSessions.get(id);
+  }
+  
+  async getTaskPomodoroSessions(taskId: number): Promise<PomodoroSession[]> {
+    return Array.from(this.pomodoroSessions.values())
+      .filter(session => session.taskId === taskId);
+  }
+  
+  async createPomodoroSession(insertSession: InsertPomodoroSession): Promise<PomodoroSession> {
+    const id = this.pomodoroSessionCurrentId++;
+    const now = new Date();
+    
+    // Create session with properly typed fields
+    const session: PomodoroSession = {
+      id,
+      userId: insertSession.userId,
+      taskId: insertSession.taskId || null,
+      duration: insertSession.duration || 25,
+      status: insertSession.status || 'completed',
+      startTime: insertSession.startTime instanceof Date ? insertSession.startTime : new Date(insertSession.startTime),
+      endTime: insertSession.endTime ? (insertSession.endTime instanceof Date ? insertSession.endTime : new Date(insertSession.endTime)) : null,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.pomodoroSessions.set(id, session);
+    
+    // Update user's total pomodoros if completed
+    if (session.status === 'completed') {
+      const user = this.users.get(session.userId);
+      if (user) {
+        this.updateUser(session.userId, { 
+          totalPomodoros: user.totalPomodoros + 1 
+        });
+      }
+    }
+    
+    return session;
+  }
+  
+  async updatePomodoroSession(id: number, sessionUpdate: Partial<InsertPomodoroSession>): Promise<PomodoroSession | undefined> {
+    const existingSession = this.pomodoroSessions.get(id);
+    
+    if (!existingSession) {
+      return undefined;
+    }
+    
+    const wasCompleted = existingSession.status === 'completed';
+    const isNowCompleted = sessionUpdate.status === 'completed';
+    
+    // Create updated session with proper typing
+    const updatedSession: PomodoroSession = {
+      ...existingSession,
+      userId: sessionUpdate.userId || existingSession.userId,
+      taskId: sessionUpdate.taskId !== undefined ? sessionUpdate.taskId : existingSession.taskId,
+      duration: sessionUpdate.duration || existingSession.duration,
+      status: sessionUpdate.status || existingSession.status,
+      startTime: sessionUpdate.startTime ? 
+                (sessionUpdate.startTime instanceof Date ? sessionUpdate.startTime : new Date(sessionUpdate.startTime)) 
+                : existingSession.startTime,
+      endTime: sessionUpdate.endTime !== undefined ? 
+              (sessionUpdate.endTime === null ? null : 
+                (sessionUpdate.endTime instanceof Date ? sessionUpdate.endTime : new Date(sessionUpdate.endTime)))
+              : existingSession.endTime,
+      updatedAt: new Date()
+    };
+    
+    this.pomodoroSessions.set(id, updatedSession);
+    
+    // Update user's total pomodoros if status changed to completed
+    if (!wasCompleted && isNowCompleted) {
+      const user = this.users.get(updatedSession.userId);
+      if (user) {
+        this.updateUser(updatedSession.userId, { 
+          totalPomodoros: user.totalPomodoros + 1 
+        });
+      }
+    }
+    
+    return updatedSession;
+  }
+  
+  async deletePomodoroSession(id: number): Promise<boolean> {
+    // Delete associated forest trees
+    Array.from(this.forestTrees.entries())
+      .filter(([_, tree]) => tree.pomodoroSessionId === id)
+      .forEach(([treeId, _]) => {
+        this.forestTrees.delete(treeId);
+      });
+      
+    return this.pomodoroSessions.delete(id);
+  }
+  
+  // Forest methods
+  async getForestTrees(userId: number): Promise<ForestTree[]> {
+    return Array.from(this.forestTrees.values())
+      .filter(tree => tree.userId === userId);
+  }
+  
+  async getForestTree(id: number): Promise<ForestTree | undefined> {
+    return this.forestTrees.get(id);
+  }
+  
+  async createForestTree(insertTree: InsertForestTree): Promise<ForestTree> {
+    const id = this.forestTreeCurrentId++;
+    const now = new Date();
+    
+    // Create tree with properly typed fields
+    const tree: ForestTree = {
+      id,
+      userId: insertTree.userId,
+      pomodoroSessionId: insertTree.pomodoroSessionId,
+      treeType: insertTree.treeType || 'oak',
+      growthStage: insertTree.growthStage || 100,
+      name: insertTree.name || null,
+      plantedAt: insertTree.plantedAt ? 
+               (insertTree.plantedAt instanceof Date ? insertTree.plantedAt : new Date(insertTree.plantedAt)) 
+               : now,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.forestTrees.set(id, tree);
+    
+    // Update user's total trees
+    const user = this.users.get(tree.userId);
+    if (user) {
+      this.updateUser(tree.userId, { 
+        totalTrees: user.totalTrees + 1 
+      });
+    }
+    
+    return tree;
+  }
+  
+  async updateForestTree(id: number, treeUpdate: Partial<InsertForestTree>): Promise<ForestTree | undefined> {
+    const existingTree = this.forestTrees.get(id);
+    
+    if (!existingTree) {
+      return undefined;
+    }
+    
+    // Create updated tree with proper typing
+    const updatedTree: ForestTree = {
+      ...existingTree,
+      userId: treeUpdate.userId || existingTree.userId,
+      pomodoroSessionId: treeUpdate.pomodoroSessionId || existingTree.pomodoroSessionId,
+      treeType: treeUpdate.treeType || existingTree.treeType,
+      growthStage: treeUpdate.growthStage !== undefined ? treeUpdate.growthStage : existingTree.growthStage,
+      name: treeUpdate.name !== undefined ? treeUpdate.name : existingTree.name,
+      plantedAt: treeUpdate.plantedAt ? 
+                (treeUpdate.plantedAt instanceof Date ? treeUpdate.plantedAt : new Date(treeUpdate.plantedAt)) 
+                : existingTree.plantedAt,
+      updatedAt: new Date()
+    };
+    
+    this.forestTrees.set(id, updatedTree);
+    return updatedTree;
+  }
+  
+  async deleteForestTree(id: number): Promise<boolean> {
+    const tree = this.forestTrees.get(id);
+    
+    if (tree) {
+      // Update user's total trees count
+      const user = this.users.get(tree.userId);
+      if (user && user.totalTrees > 0) {
+        this.updateUser(tree.userId, { 
+          totalTrees: user.totalTrees - 1 
+        });
+      }
+    }
+    
+    return this.forestTrees.delete(id);
   }
 }
 

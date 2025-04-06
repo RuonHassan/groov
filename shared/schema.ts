@@ -39,7 +39,7 @@ export const taskSchema = z.object({
   delegatedTo: z.string().nullable(),
   createdAt: z.instanceof(Date),
   updatedAt: z.instanceof(Date),
-  scheduled: z.boolean().default(false),
+  scheduled: z.boolean(),
 });
 
 export type InsertTask = z.infer<typeof insertTaskSchema>;
@@ -87,10 +87,83 @@ export const calendarEventSchema = z.object({
 export type InsertCalendarEvent = z.infer<typeof insertCalendarEventSchema>;
 export type CalendarEvent = z.infer<typeof calendarEventSchema>;
 
+// Pomodoro sessions
+export const pomodoroSessions = pgTable("pomodoro_sessions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(), // Link to user
+  taskId: integer("task_id"), // Optional link to a task
+  duration: integer("duration").notNull().default(25), // Duration in minutes
+  status: text("status").notNull().default("completed"), // in-progress, completed, abandoned
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertPomodoroSessionSchema = createInsertSchema(pomodoroSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const pomodoroSessionSchema = z.object({
+  id: z.number(),
+  userId: z.number(),
+  taskId: z.number().nullable(),
+  duration: z.number(),
+  status: z.string(),
+  startTime: z.instanceof(Date),
+  endTime: z.instanceof(Date).nullable(),
+  createdAt: z.instanceof(Date),
+  updatedAt: z.instanceof(Date),
+});
+
+export type InsertPomodoroSession = z.infer<typeof insertPomodoroSessionSchema>;
+export type PomodoroSession = z.infer<typeof pomodoroSessionSchema>;
+
+// Forest trees
+export const forestTrees = pgTable("forest_trees", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(), // Link to user
+  pomodoroSessionId: integer("pomodoro_session_id").notNull(), // Link to the completed pomodoro session
+  treeType: text("tree_type").notNull().default("oak"), // oak, pine, cherry, maple, etc.
+  growthStage: integer("growth_stage").notNull().default(100), // 0-100% grown
+  name: text("name"), // Optional name for the tree
+  plantedAt: timestamp("planted_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertForestTreeSchema = createInsertSchema(forestTrees).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const forestTreeSchema = z.object({
+  id: z.number(),
+  userId: z.number(),
+  pomodoroSessionId: z.number(),
+  treeType: z.string(),
+  growthStage: z.number(),
+  name: z.string().nullable(),
+  plantedAt: z.instanceof(Date),
+  createdAt: z.instanceof(Date),
+  updatedAt: z.instanceof(Date),
+});
+
+export type InsertForestTree = z.infer<typeof insertForestTreeSchema>;
+export type ForestTree = z.infer<typeof forestTreeSchema>;
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  totalPomodoros: integer("total_pomodoros").default(0), // Total completed pomodoros
+  totalTrees: integer("total_trees").default(0), // Total trees grown
+  streakDays: integer("streak_days").default(0), // Current streak of days with completed pomodoros
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -98,5 +171,16 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
 });
 
+export const userSchema = z.object({
+  id: z.number(),
+  username: z.string(),
+  password: z.string(),
+  totalPomodoros: z.number(),
+  totalTrees: z.number(),
+  streakDays: z.number(),
+  createdAt: z.instanceof(Date),
+  updatedAt: z.instanceof(Date),
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export type User = z.infer<typeof userSchema>;
