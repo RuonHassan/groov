@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Calendar } from "lucide-react";
-import Header from "@/components/Header";
 import CalendarComponent from "@/components/Calendar";
 import { Task } from "@shared/schema";
 import { useTaskContext } from "@/contexts/TaskContext";
@@ -33,7 +32,6 @@ export default function CalendarPage() {
   if (tasksLoading) {
     return (
       <div className="min-h-screen flex flex-col bg-white text-gray-800">
-        <Header />
         <main className="flex-1 flex items-center justify-center">
           <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
         </main>
@@ -44,7 +42,6 @@ export default function CalendarPage() {
   if (tasksError) {
     return (
       <div className="min-h-screen flex flex-col bg-white text-gray-800">
-        <Header />
         <main className="flex-1 flex flex-col items-center justify-center p-4">
           <h2 className="text-xl font-bold text-red-500 mb-2">Error Loading Tasks</h2>
           <p className="text-gray-600 mb-4">There was a problem loading your tasks.</p>
@@ -61,17 +58,6 @@ export default function CalendarPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white text-gray-800">
-      <Header />
-      <div className="border-b border-gray-200 bg-white">
-        <div className="flex items-center p-4">
-          <Button asChild variant="outline" size="sm">
-            <Link to="/" className="flex items-center">
-              <Calendar className="mr-2 h-4 w-4" />
-              Back to Tasks
-            </Link>
-          </Button>
-        </div>
-      </div>
       <main className="flex-1 overflow-hidden">
         <CalendarComponent 
           key={key}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO, isWithinInterval, isValid, getHours, getMinutes } from 'date-fns';
+import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO, isWithinInterval, isValid, getHours, getMinutes, getDay } from 'date-fns';
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Task } from "@shared/schema";
@@ -43,7 +43,12 @@ export default function Calendar({ tasks }: CalendarProps) {
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); 
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
-  const weekDays = Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
+  const allWeekDays = Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
+  const weekDays = allWeekDays.filter(day => {
+      const dayOfWeek = getDay(day);
+      return dayOfWeek !== 0 && dayOfWeek !== 6; // Exclude Sunday (0) and Saturday (6)
+  });
+  const desktopWeekDays = allWeekDays; // Keep all days for desktop view logic if needed, or adjust grid logic
 
   const formatWeekdayHeader = (date: Date) => format(date, 'EEE');
   const formatDateHeader = (date: Date) => format(date, 'd');
@@ -133,36 +138,44 @@ export default function Calendar({ tasks }: CalendarProps) {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-2 border-b">
-          <span className="font-semibold">
+          <span className="font-semibold text-xl">
               {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
           </span>
       </div>
       
       <div className="flex-1 overflow-auto border-t border-gray-200">
-        <div className="grid grid-cols-[auto_repeat(7,minmax(100px,1fr))] min-w-[800px]">
+        <div className="grid grid-cols-[auto_repeat(5,minmax(0,1fr))] md:grid-cols-[auto_repeat(7,minmax(100px,1fr))] md:min-w-[800px]">
           <div className="sticky top-0 z-20 bg-white border-r border-b border-gray-200 p-2 text-xs font-medium text-gray-500 text-center">Time</div>
-          {weekDays.map(day => (
-            <div key={day.toISOString()} className="sticky top-0 z-20 bg-white border-b border-gray-200 p-2 text-center">
-              <div className="text-xs font-medium text-gray-500">{formatWeekdayHeader(day)}</div>
-              <div className={`text-lg font-semibold ${isSameDay(day, new Date()) ? 'text-blue-600' : 'text-gray-900'}`}>
-                {formatDateHeader(day)}
-              </div>
-            </div>
-          ))}
+          {desktopWeekDays.map(day => {
+            const dayOfWeek = getDay(day);
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            return (
+                <div 
+                    key={day.toISOString()} 
+                    className={`sticky top-0 z-20 bg-white border-b border-gray-200 p-2 text-center ${isWeekend ? 'hidden md:block' : ''}`}>
+                  <div className="text-xs font-medium text-gray-500">{formatWeekdayHeader(day)}</div>
+                  <div className={`text-lg font-semibold ${isSameDay(day, new Date()) ? 'text-blue-600' : 'text-gray-900'}`}>
+                    {formatDateHeader(day)}
+                  </div>
+                </div>
+            );
+          })}
 
           {timeSlots.map(slot => (
             <React.Fragment key={slot.formatted}>
               <div className="row-span-1 border-r border-gray-200 p-2 text-xs text-right text-gray-500 h-16 flex items-center justify-end"> 
                 <span>{slot.formatted}</span>
               </div>
-              {weekDays.map(day => {
+              {desktopWeekDays.map(day => {
+                const dayOfWeek = getDay(day);
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
                 // Get only tasks STARTING in this slot
                 const tasksStartingInSlot = getTasksForTimeSlot(day, slot); 
                 
                 return (
                   <div
                     key={day.toISOString() + slot.formatted}
-                    className="border-b border-r border-gray-100 h-16 relative cursor-pointer hover:bg-blue-50 transition-colors" 
+                    className={`border-b border-r border-gray-100 h-16 relative cursor-pointer hover:bg-blue-50 transition-colors ${isWeekend ? 'hidden md:block' : ''}`}
                     onClick={() => handleTimeSlotClick(day, slot)}
                   >
                     {/* Remove p-1 from parent div if tasks have their own padding */} 

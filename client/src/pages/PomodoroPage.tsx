@@ -23,7 +23,6 @@ import {
   Flower2 
 } from "lucide-react";
 import type { Task, PomodoroSession, ForestTree } from "@shared/schema";
-import Header from "@/components/Header";
 
 const userId = 1; // For demo, hardcoded user ID
 
@@ -339,8 +338,7 @@ export default function PomodoroPage() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-white text-gray-800">
-      <Header />
+    <div className="min-h-screen flex flex-col bg-gray-100 text-gray-800">
       <div className="container mx-auto py-8 flex-1">
         <h1 className="text-3xl font-bold mb-6">Pomodoro Forest</h1>
         

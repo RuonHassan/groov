@@ -5,10 +5,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
-  Timer
+  Timer,
+  User,
+  LogOut,
+  Settings
 } from "lucide-react";
 import WeeklyReviewModal from "./WeeklyReviewModal";
-import { format, differenceInWeeks } from "date-fns";
+import { format, startOfWeek, isSameWeek, addWeeks } from "date-fns";
 import {
   Tooltip,
   TooltipContent,
@@ -17,27 +20,44 @@ import {
 } from "@/components/ui/tooltip";
 import { Link, useRoute } from "wouter";
 import { useWeek } from "@/contexts/WeekContext";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Header() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isOnCalendar] = useRoute("/calendar");
   const [isOnPomodoro] = useRoute("/pomodoro");
   const { currentDate, goToPreviousWeek, goToNextWeek } = useWeek();
+  const { user, signOut } = useAuth();
 
   // Calculate which week we're looking at
   const getWeekIndicator = () => {
     const today = new Date();
-    const weekDiff = differenceInWeeks(currentDate, today);
+    const todayWeekStart = startOfWeek(today);
+    const nextWeekStart = addWeeks(todayWeekStart, 1);
     
-    switch (weekDiff) {
-      case 0:
-        return "This Week";
-      case 1:
-        return "Next Week";
-      case 2:
-        return "In 2 Weeks";
-      default:
-        return weekDiff > 2 ? "Future" : "Past";
+    if (isSameWeek(currentDate, today)) {
+      return "This Week";
+    } else if (isSameWeek(currentDate, nextWeekStart)) {
+      return "Next Week";
+    } else {
+      return "Future";
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      // Navigation handled by AuthContext and PrivateRoute
+    } catch (error) {
+      console.error("Error signing out:", error);
     }
   };
 
@@ -47,7 +67,40 @@ export default function Header() {
         <div className="flex justify-between items-center h-14">
           {/* Left side - Navigation links */}
           <div className="flex-1 flex justify-start items-center space-x-2">
-            {/* Calendar/Pomodoro Buttons - Moved here */}
+            {/* User Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full"
+                >
+                  <User className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="flex items-center cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="flex items-center cursor-pointer">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  className="flex items-center text-red-600 cursor-pointer"
+                  onClick={handleSignOut}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Sign out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            {/* Calendar/Pomodoro Buttons */}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -57,7 +110,7 @@ export default function Header() {
                     asChild
                     className={`rounded-full ${isOnCalendar ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
                   >
-                    <Link to={isOnCalendar ? "/" : "/calendar"}>
+                    <Link to={isOnCalendar ? "/app" : "/calendar"}>
                       <Calendar className="h-5 w-5" />
                     </Link>
                   </Button>
@@ -77,7 +130,7 @@ export default function Header() {
                     asChild
                     className={`rounded-full ${isOnPomodoro ? 'bg-green-100 text-green-700' : 'text-gray-700 hover:bg-gray-100'}`}
                   >
-                    <Link to={isOnPomodoro ? "/" : "/pomodoro"}>
+                    <Link to={isOnPomodoro ? "/app" : "/pomodoro"}>
                       <Timer className="h-5 w-5" />
                     </Link>
                   </Button>
@@ -91,7 +144,7 @@ export default function Header() {
 
           {/* Center - Logo */}
           <div className="flex-1 flex justify-center">
-            <Link to="/">
+            <Link to="/app">
               <img 
                 src="/groov.png" 
                 alt="Groov Logo" 
@@ -100,32 +153,35 @@ export default function Header() {
             </Link>
           </div>
           
-          {/* Right side - Week Navigation and Filter */}
-          <div className="flex-1 flex justify-end items-center space-x-2">
-            <Button 
-              variant="outline"
-              size="icon"
-              onClick={goToPreviousWeek}
-              className="rounded-full h-8 w-8"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
+          {/* Right side - Week Navigation */}
+          <div className="flex-1 flex justify-end items-center">
+            {/* Week Navigation - More compact on mobile */}
+            <div className="flex items-center">
+              <Button 
+                variant="ghost"
+                size="icon"
+                onClick={goToPreviousWeek}
+                className="h-8 w-8 rounded-full flex-shrink-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
 
-            <Badge 
-              variant="secondary" 
-              className="min-w-[80px] justify-center bg-gray-100 text-gray-600 hover:bg-gray-100"
-            >
-              {getWeekIndicator()}
-            </Badge>
-            
-            <Button 
-              variant="outline"
-              size="icon"
-              onClick={goToNextWeek}
-              className="rounded-full h-8 w-8"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+              <Badge 
+                variant="outline" 
+                className="px-2 md:px-3 mx-0.5 md:mx-1 h-7 bg-white text-xs md:text-sm whitespace-nowrap font-medium flex items-center justify-center"
+              >
+                {getWeekIndicator()}
+              </Badge>
+              
+              <Button 
+                variant="ghost"
+                size="icon"
+                onClick={goToNextWeek}
+                className="h-8 w-8 rounded-full flex-shrink-0"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>

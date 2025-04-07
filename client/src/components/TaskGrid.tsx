@@ -9,9 +9,10 @@ import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 
 // Helper function to find the next available 30-min slot
-const findNextAvailableSlot = (date: Date, existingTasks: Task[]): Date => {
+// Returns null if no slot found within the day constraint
+const findNextAvailableSlot = (date: Date, existingTasks: Task[]): Date | null => {
   let startTime = date;
-  const maxEndTime = dfnsAddDays(startOfDay(date), 1); // Don't schedule past midnight
+  const maxEndTime = dfnsAddDays(startOfDay(date), 1); // Don't schedule past midnight of the *initial* date
 
   // Check slots every 30 minutes
   while (isBefore(startTime, maxEndTime)) {
@@ -47,10 +48,9 @@ const findNextAvailableSlot = (date: Date, existingTasks: Task[]): Date => {
     // If startTime jumped past maxEndTime, loop will terminate.
   }
 
-  // If no slot found before midnight, return null or handle appropriately
-  // For now, return the original requested time (might overlap)
-  console.warn("Could not find an available slot, defaulting to original time.");
-  return date; 
+  // If loop finishes without returning, no slot was found before maxEndTime
+  console.warn(`Could not find an available slot starting from ${format(date, 'Pp')}`);
+  return null; 
 };
 
 export default function TaskGrid() {
@@ -101,32 +101,58 @@ export default function TaskGrid() {
   // Quick Add handler with slot finding
   const handleQuickAddKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>, section: "today" | "tomorrow") => {
     if (e.key === "Enter" && quickTaskTitle.trim()) {
-      let initialStartTime: Date;
-      
+      let initialSearchTime: Date;
+      let finalAvailableStartTime: Date | null = null;
+
       if (section === "today") {
-        // Start from current time for today
-        initialStartTime = new Date(); 
+        // Start search from the current time today
+        initialSearchTime = new Date();
         // Optional: Round initialStartTime to nearest 15/30 min if desired
-        // initialStartTime.setMinutes(Math.ceil(initialStartTime.getMinutes() / 30) * 30, 0, 0);
-      } else { // Tomorrow
-        // Start from beginning of tomorrow (e.g., 8 AM)
-        initialStartTime = startOfDay(dfnsAddDays(new Date(), 1));
-        initialStartTime.setHours(8, 0, 0, 0); // Set to 8:00 AM
+        // initialSearchTime.setMinutes(Math.ceil(initialSearchTime.getMinutes() / 30) * 30, 0, 0);
+        
+        finalAvailableStartTime = findNextAvailableSlot(initialSearchTime, tasks);
+
+        // If no slot found today, try tomorrow starting at 8 AM
+        if (!finalAvailableStartTime) {
+          console.log("No slot found for today, checking tomorrow...");
+          let tomorrowSearchTime = startOfDay(dfnsAddDays(new Date(), 1));
+          tomorrowSearchTime.setHours(8, 0, 0, 0); // Start tomorrow's search at 8:00 AM
+          finalAvailableStartTime = findNextAvailableSlot(tomorrowSearchTime, tasks);
+        }
+
+      } else { // section === "tomorrow"
+        // Start search from 8 AM tomorrow
+        initialSearchTime = startOfDay(dfnsAddDays(new Date(), 1));
+        initialSearchTime.setHours(8, 0, 0, 0); 
+        finalAvailableStartTime = findNextAvailableSlot(initialSearchTime, tasks);
       }
 
-      // Find the next available slot using the helper function
-      const availableStartTime = findNextAvailableSlot(initialStartTime, tasks);
-      const availableEndTime = addMinutes(availableStartTime, 30); // 30-minute duration
+      // If still no slot found (e.g., tomorrow is also full), handle error or default
+      if (!finalAvailableStartTime) {
+        console.error("Could not find any available slot for today or tomorrow.");
+        // Maybe add task without time, or show error toast?
+        // For now, let's just not add the task if no slot is found.
+        // Alternatively, add it without start/end times:
+        /*
+        await addTask({
+          title: quickTaskTitle,
+          color: "#3b82f6", // Default blue
+        });
+        setQuickTaskTitle("");
+        setActiveQuickAdd(null);
+        */
+        return; // Exit if no slot found
+      }
+
+      // Calculate end time based on the found start time
+      const availableEndTime = addMinutes(finalAvailableStartTime, 30); // 30-minute duration
 
       // Use snake_case for payload keys matching DB schema
       const payload: Record<string, any> = {
         title: quickTaskTitle,
-        // Set start_time and end_time (snake_case)
-        start_time: availableStartTime.toISOString(),
+        start_time: finalAvailableStartTime.toISOString(),
         end_time: availableEndTime.toISOString(),   
-        // Default color? Or leave null? Adding default blue for now.
-        color: "#3b82f6", 
-        // Removed status field as it doesn't exist
+        color: "#3b82f6", // Default blue
       };
 
       try {
@@ -154,7 +180,7 @@ export default function TaskGrid() {
     // Define the Quick Add UI elements directly (Button or Input)
     const quickAddUI = canQuickAdd ? (
       activeQuickAdd === section ? (
-        <div className="px-4 py-3 border-t border-gray-100">
+        <div className="px-4 py-3">
           <Input
             autoFocus
             placeholder={`Add task for ${title} & schedule...`}
@@ -166,7 +192,7 @@ export default function TaskGrid() {
         </div>
       ) : (
         <div
-          className="px-4 py-3 border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
+          className="px-4 py-3 hover:bg-gray-50 cursor-pointer"
           onClick={() => setActiveQuickAdd(section)}
         >
           <Button
@@ -182,7 +208,7 @@ export default function TaskGrid() {
 
     return (
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 px-4 py-3">{title}</h2>
+        <h2 className="text-xl font-semibold text-gray-900 px-4 py-3 border-t border-b border-t-gray-200 border-b-gray-300">{title}</h2>
         {tasks.length > 0 && (
            <div>
              {tasks.map((task) => (

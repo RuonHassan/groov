@@ -3,21 +3,30 @@ import { Task } from "@shared/schema";
 import { useTaskContext } from "@/contexts/TaskContext";
 import AddTaskModal from "./AddTaskModal";
 import { Button } from "@/components/ui/button";
-import { motion } from "framer-motion";
+import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, Calendar } from "lucide-react";
+import { CheckCircle, Calendar, Trash2 } from "lucide-react";
 
 interface TaskCardProps {
   task: Task;
 }
 
+const SWIPE_THRESHOLD = -100;
+const DELETE_THRESHOLD = 100;
+
 export default function TaskCard({ task }: TaskCardProps) {
-  const { updateTask } = useTaskContext();
+  const { updateTask, deleteTask } = useTaskContext();
   const { toast } = useToast();
   const [showEditModal, setShowEditModal] = useState(false);
 
-  const handleComplete = async (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
+  const x = useMotionValue(0);
+  const completeOpacity = useTransform(x, [-150, SWIPE_THRESHOLD], [1, 0.2]);
+  const deleteOpacity = useTransform(x, [DELETE_THRESHOLD, 150], [0.2, 1]);
+  const completeScale = useTransform(x, [SWIPE_THRESHOLD, 0], [1, 0.5]);
+  const deleteScale = useTransform(x, [0, DELETE_THRESHOLD], [0.5, 1]);
+
+  const handleComplete = async (e?: React.MouseEvent | PanInfo) => {
+    if (e && 'stopPropagation' in e) e.stopPropagation();
     try {
       await updateTask(task.id, { completed_at: new Date().toISOString() });
       toast({
@@ -30,49 +39,103 @@ export default function TaskCard({ task }: TaskCardProps) {
     }
   };
 
+  const handleDelete = async (e?: React.MouseEvent | PanInfo) => {
+    if (e && 'stopPropagation' in e) e.stopPropagation();
+    try {
+      await deleteTask(task.id);
+      toast({
+        title: "Task deleted",
+        description: `"${task.title}" has been deleted.`
+      });
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+      toast({ title: "Error", description: "Failed to delete task.", variant: "destructive" });
+    }
+  };
+
   const handleEditTime = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowEditModal(true);
   };
 
   const handleCardClick = () => {
-    setShowEditModal(true);
+    if (x.get() === 0) {
+      setShowEditModal(true);
+    }
+  };
+
+  const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    const offset = info.offset.x;
+    const velocity = info.velocity.x;
+
+    if (offset < SWIPE_THRESHOLD || velocity < -500) {
+      handleComplete(info);
+    } else if (offset > DELETE_THRESHOLD || velocity > 500) {
+      handleDelete(info);
+    } else {
+      motion.animate(x, 0, { type: "spring", stiffness: 300, damping: 30 });
+    }
   };
 
   return (
     <>
-      <motion.div
-        className="flex items-center justify-between w-full py-3 px-4 bg-white border-b border-gray-100 cursor-pointer hover:bg-gray-50"
-        onClick={handleCardClick}
-        whileTap={{ scale: 0.99 }}
-      >
-        <h3 className="text-sm text-gray-900 truncate flex-1 mr-2">
-          {task.title}
-        </h3>
+      <div className="relative bg-gray-100 overflow-hidden rounded-lg mb-1">
+        <motion.div
+          className="absolute inset-y-0 left-0 w-full bg-red-500 flex items-center justify-start px-6"
+          style={{ opacity: deleteOpacity, pointerEvents: 'none' }}
+        >
+          <motion.div style={{ scale: deleteScale }}>
+            <Trash2 className="h-5 w-5 text-white" />
+          </motion.div>
+        </motion.div>
         
-        <div className="flex items-center gap-1 ml-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleEditTime}
-            className="h-7 w-7 rounded-full text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-            title="Edit time"
-          >
-            <Calendar className="h-4 w-4" />
-          </Button>
+        <motion.div
+          className="absolute inset-y-0 right-0 w-full bg-green-500 flex items-center justify-end px-6"
+          style={{ opacity: completeOpacity, pointerEvents: 'none' }}
+        >
+          <motion.div style={{ scale: completeScale }}>
+            <CheckCircle className="h-5 w-5 text-white" />
+          </motion.div>
+        </motion.div>
+        
+        <motion.div
+          drag="x"
+          style={{ x }}
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.2}
+          onDragEnd={handleDragEnd}
+          className="relative flex items-center justify-between w-full py-3 px-4 bg-white border-b border-gray-100 cursor-pointer hover:bg-gray-50 z-10"
+          onClick={handleCardClick}
+          whileTap={{ scale: 0.99, cursor: "grabbing" }}
+        >
+          <h3 className="text-sm text-gray-900 truncate flex-1 mr-2 select-none">
+            {task.title}
+          </h3>
           
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => handleComplete(e)}
-            className="h-7 w-7 rounded-full text-green-500 hover:text-green-700 hover:bg-green-50"
-            title="Mark complete"
-          >
-            <CheckCircle className="h-4 w-4" />
-          </Button>
-        </div>
+          <div className="flex items-center gap-1 ml-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleEditTime}
+              className="h-7 w-7 rounded-full flex-shrink-0"
+              title="Edit Task Details"
+            >
+              <Calendar className="h-4 w-4" />
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => handleComplete(e)}
+              className="h-7 w-7 rounded-full flex-shrink-0"
+              title="Mark complete"
+            >
+              <CheckCircle className="h-4 w-4" />
+            </Button>
+          </div>
 
-      </motion.div>
+        </motion.div>
+      </div>
 
       <AddTaskModal
         open={showEditModal}

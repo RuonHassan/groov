@@ -189,7 +189,7 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
            
             <FormField control={form.control} name="color" render={({ field }) => (
                    <FormItem>
-                     <FormControl><Input type="color" {...field} className="h-10 w-full p-1" /></FormControl>
+                     <FormControl><Input type="color" {...field} className="h-10 w-full p-0 border-0 rounded-md" /></FormControl>
                      <FormMessage />
                    </FormItem>
                )} />

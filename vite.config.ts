@@ -13,7 +13,6 @@ export default defineConfig({
   plugins: [
     tsconfigPaths(),
     react(),
-    runtimeErrorOverlay(),
     themePlugin(),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
@@ -29,4 +28,9 @@ export default defineConfig({
     outDir: path.resolve(__dirname, "dist"),
     emptyOutDir: true,
   },
+  server: {
+    hmr: {
+      overlay: false
+    }
+  }
 });
