@@ -1,0 +1,313 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# TaskFlow GTD - Product Documentation
+
+## Overview
+
+TaskFlow GTD is a comprehensive productivity application built on the Getting Things Done (GTD) methodology. It helps users organize, prioritize, and track tasks efficiently with a minimalist and intuitive interface. The application includes task management, calendar integration, and a Pomodoro timer with forest gamification elements.
+
+## Technology Stack
+
+- **Frontend**: React with TypeScript
+- **Backend**: Express.js
+- **State Management**: React Query
+- **UI Components**: Shadcn UI with Tailwind CSS
+- **Routing**: Wouter
+- **Form Handling**: React Hook Form with Zod validation
+- **Data Storage**: In-memory storage with future PostgreSQL integration
+
+## Application Structure
+
+### Client-Side Architecture
+
+The client application is organized into the following directories:
+
+- `/client/src/components`: Reusable UI components
+- `/client/src/components/ui`: Shadcn UI components
+- `/client/src/contexts`: React contexts for state management
+- `/client/src/hooks`: Custom React hooks
+- `/client/src/lib`: Utility functions and configurations
+- `/client/src/pages`: Main page components
+
+### Server-Side Architecture
+
+The server provides a REST API for data operations:
+
+- `/server/index.ts`: Express server setup
+- `/server/routes.ts`: API endpoint definitions
+- `/server/storage.ts`: Data storage implementation
+- `/server/vite.ts`: Vite configuration for development
+
+### Shared Code
+
+- `/shared/schema.ts`: Contains shared data models and validation schemas
+
+## Core Features
+
+### 1. Task Management
+
+Tasks in the application follow the GTD methodology with the following statuses:
+
+- **Inbox**: New, uncategorized tasks
+- **Next**: Tasks ready to be worked on
+- **Waiting**: Tasks pending someone else's action
+- **Someday**: Tasks to be considered in the future
+- **Projects**: Multi-step tasks
+- **Completed**: Finished tasks
+
+Tasks contain the following properties:
+- `id`: Unique identifier
+- `title`: Task name
+- `notes`: Additional information
+- `status`: Current state (inbox/next/waiting/etc.)
+- `context`: Environment or tool needed (e.g., home, computer)
+- `energy`: Energy level required (high/medium/low)
+- `priority`: Importance level (high/medium/low)
+- `time`: Estimated time in minutes
+- `dueDate`: Optional deadline
+- `completedAt`: Completion timestamp
+- `createdAt`: Creation timestamp
+
+### 2. Calendar Integration
+
+The calendar feature allows users to:
+- Schedule tasks at specific time slots
+- View tasks in a weekly calendar view
+- Create, update, and delete calendar events
+- Link calendar events to specific tasks
+
+Calendar events contain:
+- `id`: Unique identifier
+- `title`: Event name
+- `description`: Event details
+- `startTime`: Start date and time
+- `endTime`: End date and time
+- `taskId`: Optional associated task
+- `createdAt`: Creation timestamp
+
+### 3. Pomodoro Timer
+
+The Pomodoro feature helps users maintain focus and take regular breaks:
+
+- **Timer Modes**:
+  - Pomodoro (Focus) periods: Default 25 minutes
+  - Short breaks: Default 5 minutes
+  - Long breaks: Default 15 minutes
+
+- **Features**:
+  - Customizable timer durations
+  - Task selection for tracking what you're working on
+  - Option to auto-start breaks/pomodoros
+  - Session tracking with statistics
+  - Forest gamification (plant virtual trees for completed sessions)
+
+- **Forest Gamification**:
+  - Plant a virtual tree for each completed pomodoro
+  - Different tree types (oak, pine, cherry, maple)
+  - Visual representation of productivity over time
+
+## API Endpoints
+
+### Task Management
+
+- `GET /api/tasks`: Get all tasks
+- `GET /api/tasks/:id`: Get a specific task
+- `POST /api/tasks`: Create a new task
+- `PATCH /api/tasks/:id`: Update a task
+- `DELETE /api/tasks/:id`: Delete a task
+
+### Calendar Events
+
+- `GET /api/calendar-events`: Get all calendar events
+- `GET /api/calendar-events/:id`: Get a specific event
+- `POST /api/calendar-events`: Create a new event
+- `PATCH /api/calendar-events/:id`: Update an event
+- `DELETE /api/calendar-events/:id`: Delete an event
+
+### Pomodoro Sessions
+
+- `GET /api/users/:id/pomodoro-sessions`: Get a user's pomodoro sessions
+- `GET /api/pomodoro-sessions/:id`: Get a specific session
+- `POST /api/pomodoro-sessions`: Create a new session
+- `PATCH /api/pomodoro-sessions/:id`: Update a session
+- `DELETE /api/pomodoro-sessions/:id`: Delete a session
+
+### Forest Trees
+
+- `GET /api/users/:id/forest-trees`: Get a user's forest trees
+- `POST /api/forest-trees`: Plant a new tree
+- `PATCH /api/forest-trees/:id`: Update a tree
+- `DELETE /api/forest-trees/:id`: Remove a tree
+
+## Data Models
+
+### Task
+
+```typescript
+export type Task = {
+  id: number;
+  title: string;
+  notes: string | null;
+  status: "inbox" | "next" | "waiting" | "someday" | "project" | "completed";
+  context: string | null;
+  energy: "high" | "medium" | "low" | null;
+  priority: "high" | "medium" | "low" | null;
+  time: number | null;
+  dueDate: string | null;
+  completedAt: string | null;
+  createdAt: string;
+};
+```
+
+### Calendar Event
+
+```typescript
+export type CalendarEvent = {
+  id: number;
+  title: string;
+  description: string | null;
+  startTime: string;
+  endTime: string;
+  taskId: number | null;
+  createdAt: string;
+};
+```
+
+### Pomodoro Session
+
+```typescript
+export type PomodoroSession = {
+  id: number;
+  userId: number;
+  taskId: number | null;
+  duration: number;
+  status: "in-progress" | "completed" | "abandoned";
+  startTime: string;
+  endTime: string | null;
+  createdAt: string;
+};
+```
+
+### Forest Tree
+
+```typescript
+export type ForestTree = {
+  id: number;
+  userId: number;
+  pomodoroSessionId: number;
+  treeType: "oak" | "pine" | "cherry" | "maple";
+  growthStage: number;
+  plantedAt: string;
+  createdAt: string;
+};
+```
+
+### User
+
+```typescript
+export type User = {
+  id: number;
+  username: string;
+  password: string; // Hashed
+  email: string | null;
+  createdAt: string;
+};
+```
+
+## UI Components
+
+### Main Navigation
+
+- **Header**: Contains app title, pomodoro timer button, and other main navigation options
+- **Sidebar**: Provides access to different views and contexts
+
+### Task Views
+
+- **Dashboard**: Overview of tasks, upcoming calendar events, and recent pomodoro sessions
+- **Task Grid**: Main task management interface with filtering and sorting options
+- **Task Card**: Individual task display with drag-and-drop functionality
+- **Add Task Modal**: Form for creating and editing tasks
+
+### Calendar Components
+
+- **Weekly Calendar**: 7-day view with hourly time slots
+- **Calendar Event Form**: Create and edit calendar events
+- **Task Connection**: Associate calendar events with tasks
+
+### Pomodoro Interface
+
+- **Timer Display**: Shows current timer mode and remaining time
+- **Mode Selection**: Switch between pomodoro, short break, and long break
+- **Settings**: Customize timer durations and behavior
+- **Forest Visualization**: Visual representation of completed pomodoros as trees
+
+## State Management
+
+The application uses a combination of React Query for server state and React Context for UI state:
+
+### Task Context
+
+Provides task-related state and operations:
+- Current tasks list
+- Filtering options (status, context, energy, etc.)
+- Sorting preferences
+- CRUD operations
+
+### Authentication Context (Planned)
+
+Will handle user authentication and profile:
+- Current user
+- Login/logout functionality
+- User preferences
+
+## Workflows
+
+### Task Management Flow
+
+1. User creates a task via the Add Task button
+2. Task is added to the inbox
+3. User processes the task by assigning status, context, and other properties
+4. Task moves to appropriate list (next actions, waiting, etc.)
+5. User completes the task, moving it to completed status
+
+### Calendar Planning Flow
+
+1. User selects a time slot in the calendar
+2. User creates a calendar event, optionally linking it to a task
+3. Event appears in the calendar view
+4. User receives reminders for upcoming events
+
+### Pomodoro Focus Flow
+
+1. User selects a task to work on (optional)
+2. User starts a pomodoro timer (default 25 minutes)
+3. User focuses on the task until timer completes
+4. Timer automatically switches to break mode
+5. After completing a pomodoro, a tree is planted in the user's virtual forest
+6. Session statistics are updated
+
+## Future Enhancements
+
+- **User Authentication**: Multi-user support with secure login
+- **PostgreSQL Integration**: Moving from in-memory to persistent database storage
+- **Mobile Responsiveness**: Enhanced support for mobile devices
+- **Offline Mode**: Support for offline usage with data synchronization
+- **Notifications**: Push notifications for due tasks and timer completions
+- **Data Visualization**: Charts and reports for productivity metrics
+- **Integrations**: Calendar sync with Google Calendar, etc.
+
+## Development Guidelines
+
+- Follow the existing component structure and naming conventions
+- Use Tailwind CSS for styling with shadcn/ui components
+- Implement form validation with Zod schemas
+- Use React Query for data fetching and mutations
+- Write descriptive commit messages
+- Add proper TSDoc comments for functions and components
+
+## Deployment
+
+The application is configured to deploy on Replit.

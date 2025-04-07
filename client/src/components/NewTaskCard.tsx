@@ -15,9 +15,9 @@ export default function NewTaskCard() {
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.99 }}
       >
-        <div className="flex items-center justify-center py-4 px-2 text-gray-400 hover:text-gray-600">
-          <PlusCircle className="h-4 w-4 mr-2" />
-          <span className="text-sm">Add new task</span>
+        <div className="flex items-center justify-center py-2 px-2 text-gray-400 hover:text-gray-600">
+          <PlusCircle className="h-3 w-3 mr-1.5" />
+          <span className="text-xs">Add new task</span>
         </div>
       </motion.div>
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { 
   ChevronLeft,
   ChevronRight,
@@ -8,7 +9,7 @@ import {
   Timer
 } from "lucide-react";
 import WeeklyReviewModal from "./WeeklyReviewModal";
-import { format } from "date-fns";
+import { format, differenceInWeeks } from "date-fns";
 import {
   Sheet,
   SheetContent,
@@ -22,21 +23,45 @@ import {
 } from "@/components/ui/tooltip";
 import Sidebar from "./Sidebar";
 import { Link, useRoute } from "wouter";
+import { useWeek } from "@/contexts/WeekContext";
 
 export default function Header() {
   const [showReviewModal, setShowReviewModal] = useState(false);
-  const today = new Date();
-  const formattedDate = format(today, "MMM d");
   const [isOnCalendar] = useRoute("/calendar");
   const [isOnPomodoro] = useRoute("/pomodoro");
+  const { currentDate, goToPreviousWeek, goToNextWeek } = useWeek();
+
+  // Calculate which week we're looking at
+  const getWeekIndicator = () => {
+    const today = new Date();
+    const weekDiff = differenceInWeeks(currentDate, today);
+    
+    switch (weekDiff) {
+      case 0:
+        return "This Week";
+      case 1:
+        return "Next Week";
+      case 2:
+        return "In 2 Weeks";
+      default:
+        return weekDiff > 2 ? "Future" : "Past";
+    }
+  };
 
   return (
     <header className="bg-white border-b border-gray-100">
       <div className="w-full mx-auto px-4">
         <div className="flex justify-between items-center h-14">
-          {/* Left side - Date and navigation links */}
+          {/* Left side - Logo and navigation links */}
           <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold text-gray-900">{formattedDate}</h1>
+            <Link to="/">
+              <img 
+                src="/groov.png" 
+                alt="Groov Logo" 
+                className="h-8 w-auto cursor-pointer"
+              />
+            </Link>
+
             <div className="flex items-center space-x-2">
               <TooltipProvider>
                 <Tooltip>
@@ -80,14 +105,39 @@ export default function Header() {
             </div>
           </div>
           
-          {/* Right side - User and Navigation */}
+          {/* Right side - Week Navigation and Filter */}
           <div className="flex items-center space-x-2">
+            <Button 
+              variant="outline"
+              size="icon"
+              onClick={goToPreviousWeek}
+              className="rounded-full h-8 w-8"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+
+            <Badge 
+              variant="secondary" 
+              className="min-w-[80px] justify-center bg-gray-100 text-gray-600 hover:bg-gray-100"
+            >
+              {getWeekIndicator()}
+            </Badge>
+            
+            <Button 
+              variant="outline"
+              size="icon"
+              onClick={goToNextWeek}
+              className="rounded-full h-8 w-8"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+
             <Sheet>
               <SheetTrigger asChild>
                 <Button 
-                  variant="secondary"
+                  variant="outline"
                   size="icon"
-                  className="rounded-full bg-purple-100 text-purple-900 hover:bg-purple-200 h-8 w-8"
+                  className="rounded-full h-8 w-8 ml-2"
                 >
                   <Filter className="h-4 w-4" />
                 </Button>
@@ -98,22 +148,6 @@ export default function Header() {
                 </div>
               </SheetContent>
             </Sheet>
-            
-            <Button 
-              variant="secondary"
-              size="icon"
-              className="rounded-full bg-gray-800 text-white hover:bg-gray-700 h-8 w-8"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            
-            <Button 
-              variant="secondary"
-              size="icon"
-              className="rounded-full bg-gray-800 text-white hover:bg-gray-700 h-8 w-8"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
           </div>
         </div>
       </div>

@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
 import CalendarPage from "@/pages/CalendarPage";
 import PomodoroPage from "@/pages/PomodoroPage";
+import { WeekProvider } from "./contexts/WeekContext";
 
 function Router() {
   return (
@@ -23,8 +24,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TaskProvider>
-        <Router />
-        <Toaster />
+        <WeekProvider>
+          <Router />
+          <Toaster />
+        </WeekProvider>
       </TaskProvider>
     </QueryClientProvider>
   );

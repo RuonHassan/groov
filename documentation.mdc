@@ -1,0 +1,81 @@
+## Core Features
+
+### 1. Task Management
+
+Tasks in the application follow the GTD methodology with the following statuses:
+
+- **Inbox**: New, uncategorized tasks
+- **Next**: Tasks ready to be worked on
+- **Waiting**: Tasks pending someone else's action
+- **Someday**: Tasks to be considered in the future
+- **Projects**: Multi-step tasks
+- **Completed**: Finished tasks
+
+Tasks contain the following properties:
+- `id`: Unique identifier
+- `title`: Task name
+- `notes`: Additional information
+- `status`: Current state (inbox/next/waiting/etc.)
+- `context`: Environment or tool needed (e.g., home, computer)
+- `energy`: Energy level required (high/medium/low)
+- `priority`: Importance level (high/medium/low)
+- `time`: Estimated time in minutes
+- `dueDate`: Optional deadline
+- `completedAt`: Completion timestamp
+- `createdAt`: Creation timestamp
+
+#### Task Organization
+
+Tasks are automatically organized into temporal sections:
+- **Today**: Tasks due today
+- **Tomorrow**: Tasks due tomorrow
+- **Future**: Tasks with due dates beyond tomorrow or no due date
+- **Someday**: Tasks marked for future consideration
+
+Each section provides:
+- Clear section headers with prominent styling
+- Task cards showing task details and actions
+- Quick-add functionality for Today and Tomorrow sections
+  - One-click "Add task" button when section is empty
+  - Instant task creation with title input and Enter key
+  - Automatic date assignment based on section
+  - Escape key to cancel task creation
+
+## UI Components
+
+### Main Navigation
+
+- **Header**: Contains app title, week navigation, and filter options
+  - Week range indicator using Shadcn Badge
+  - Previous/Next week navigation buttons
+  - Filter button with consistent styling
+- **Sidebar**: Provides access to different views and contexts
+
+### Task Views
+
+- **Dashboard**: Overview of tasks, upcoming calendar events, and recent pomodoro sessions
+  - Unified scrolling container for all content
+  - Responsive layout for mobile and desktop views
+  - Clean separation between tasks and calendar sections
+- **Task Grid**: Main task management interface with:
+  - Temporal organization (Today, Tomorrow, Future, Someday)
+  - Quick task creation in empty Today/Tomorrow sections
+  - Prominent section headers with larger text
+  - Continuous flowing task list without section containers
+  - Task filtering and sorting options
+- **Task Card**: Individual task display with:
+  - Clean, single-row layout optimized for readability
+  - Essential task information
+  - Quick action buttons for common operations
+  - Completion toggle
+  - Schedule/edit options
+- **Add Task Modal**: Form for creating and editing tasks
+  - Full task property editing
+  - Date selection
+  - Status and priority settings
+
+### Calendar Components
+
+- **Calendar**: Displays tasks and events in a calendar format
+- **Event List**: Shows upcoming events and their details
+- **Pomodoro Timer**: Helps manage time for focused work 

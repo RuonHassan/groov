@@ -1,9 +1,11 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+// import { apiRequest } from "@/lib/queryClient"; // Removed as likely unused now
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Task, InsertTask } from "@shared/schema";
+// Use updated Task and InsertTask types which include start_time/end_time
+import { Task, InsertTask } from "@shared/schema"; 
+import { supabase } from "@/lib/supabaseClient";
 
 interface TaskContextType {
   tasks: Task[];
@@ -11,14 +13,10 @@ interface TaskContextType {
   error: Error | null;
   currentView: string;
   setCurrentView: (view: string) => void;
-  currentContext: string;
-  setCurrentContext: (context: string) => void;
-  energyFilter: string;
-  setEnergyFilter: (energy: string) => void;
   sortOrder: string;
   setSortOrder: (order: string) => void;
-  addTask: (task: InsertTask) => Promise<Task>;
-  updateTask: (id: number, task: Partial<InsertTask>) => Promise<Task | undefined>;
+  addTask: (taskPayload: Record<string, any>) => Promise<Task>;
+  updateTask: (id: number, taskPayload: Record<string, any>) => Promise<Task | undefined>;
   deleteTask: (id: number) => Promise<void>;
   filteredTasks: Task[];
   viewTitle: string;
@@ -29,30 +27,54 @@ const TaskContext = createContext<TaskContextType | undefined>(undefined);
 export function TaskProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [currentView, setCurrentView] = useState("all");
-  const [currentContext, setCurrentContext] = useState("all");
-  const [energyFilter, setEnergyFilter] = useState("all");
-  const [sortOrder, setSortOrder] = useState("priority");
+  const [sortOrder, setSortOrder] = useState("startTime");
   
-  // Fetch tasks
+  // Fetch tasks query - Fetches snake_case, maps to camelCase Task type?
+  // Check if Task type definition needs update or if mapping happens automatically
   const { 
     data: tasks = [], 
     isLoading, 
     error 
-  } = useQuery<Task[]>({ 
-    queryKey: ["/api/tasks"],
+  } = useQuery<Task[], Error>({
+    queryKey: ['tasks'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error("Supabase error fetching tasks:", error);
+        throw new Error(error.message || 'Failed to fetch tasks from Supabase');
+      }
+      
+      return data || [];
+    },
   });
 
-  // Add task mutation
-  const addTaskMutation = useMutation({
-    mutationFn: async (newTask: InsertTask) => {
-      const res = await apiRequest("POST", "/api/tasks", newTask);
-      return res.json();
+  // Add task mutation: Accepts snake_case payload
+  const addTaskMutation = useMutation<Task, Error, Record<string, any>>({ 
+    mutationFn: async (newTaskPayload: Record<string, any>) => {
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert(newTaskPayload) // Pass snake_case payload directly
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Supabase error adding task:", error);
+        throw new Error(error.message || 'Failed to add task');
+      }
+      if (!data) {
+        throw new Error('No data returned after adding task');
+      }
+      return data as Task; // This cast might be incorrect if Task type is camelCase
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       toast({
         title: "Task added",
-        description: "Task has been created successfully.",
+        description: `Task "${data.title}" has been created successfully.`,
       });
     },
     onError: (error) => {
@@ -64,17 +86,27 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Update task mutation
-  const updateTaskMutation = useMutation({
-    mutationFn: async ({ id, task }: { id: number; task: Partial<InsertTask> }) => {
-      const res = await apiRequest("PATCH", `/api/tasks/${id}`, task);
-      return res.json();
+  // Update task mutation: Accepts snake_case payload
+  const updateTaskMutation = useMutation<Task | undefined, Error, { id: number; taskPayload: Record<string, any> }>({
+    mutationFn: async ({ id, taskPayload }: { id: number; taskPayload: Record<string, any> }) => {
+      const { data, error } = await supabase
+        .from('tasks')
+        .update(taskPayload) // Pass snake_case payload directly
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Supabase error updating task:", error);
+        throw new Error(error.message || 'Failed to update task');
+      }
+      return data ? data as Task : undefined; // This cast might be incorrect
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       toast({
         title: "Task updated",
-        description: "Task has been updated successfully.",
+        description: `Task "${data?.title || ''}" has been updated successfully.`,
       });
     },
     onError: (error) => {
@@ -86,13 +118,21 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Delete task mutation
-  const deleteTaskMutation = useMutation({
+  // Delete task mutation (remains the same)
+  const deleteTaskMutation = useMutation<void, Error, number>({
     mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/tasks/${id}`);
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error("Supabase error deleting task:", error);
+        throw new Error(error.message || 'Failed to delete task');
+      }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       toast({
         title: "Task deleted",
         description: "Task has been deleted successfully.",
@@ -107,78 +147,34 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Function to add a new task
-  const addTask = async (task: InsertTask): Promise<Task> => {
-    return addTaskMutation.mutateAsync(task);
+  // Context provider functions now accept snake_case payload
+  const addTask = async (taskPayload: Record<string, any>): Promise<Task> => {
+    return addTaskMutation.mutateAsync(taskPayload);
   };
-
-  // Function to update a task
-  const updateTask = async (id: number, task: Partial<InsertTask>): Promise<Task | undefined> => {
-    return updateTaskMutation.mutateAsync({ id, task });
+  const updateTask = async (id: number, taskPayload: Record<string, any>): Promise<Task | undefined> => {
+    return updateTaskMutation.mutateAsync({ id, taskPayload });
   };
-
-  // Function to delete a task
   const deleteTask = async (id: number): Promise<void> => {
     return deleteTaskMutation.mutateAsync(id);
   };
 
-  // Filter tasks based on currentView, currentContext, and energyFilter
-  const filteredTasks = tasks.filter(task => {
-    let viewMatch = true;
-    let contextMatch = true;
-    let energyMatch = true;
-
-    // Filter by view (task status)
-    if (currentView !== "all") {
-      viewMatch = task.status === currentView;
-    }
-
-    // Filter by context
-    if (currentContext !== "all") {
-      contextMatch = task.context === currentContext;
-    }
-
-    // Filter by energy level
-    if (energyFilter !== "all") {
-      energyMatch = task.energy === energyFilter;
-    }
-
-    return viewMatch && contextMatch && energyMatch;
-  }).sort((a, b) => {
-    // Sort by the selected sort order
-    if (sortOrder === "priority") {
-      const priorityMap = { high: 1, medium: 2, low: 3 };
-      return (priorityMap[a.priority as keyof typeof priorityMap] || 999) - 
-             (priorityMap[b.priority as keyof typeof priorityMap] || 999);
-    } else if (sortOrder === "dueDate") {
-      if (!a.dueDate) return 1;
-      if (!b.dueDate) return -1;
-      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-    } else if (sortOrder === "energy") {
-      const energyMap = { low: 1, medium: 2, high: 3 };
-      return (energyMap[a.energy as keyof typeof energyMap] || 999) - 
-             (energyMap[b.energy as keyof typeof energyMap] || 999);
-    } else if (sortOrder === "time") {
-      return (a.time || 999) - (b.time || 999);
+  // Filter/Sort tasks: Uses the fetched `tasks` data.
+  // Data likely has snake_case keys from Supabase.
+  const filteredTasks = tasks.sort((a, b) => {
+    if (sortOrder === "startTime") {
+      // Sort by start_time (snake_case)
+      const timeA = (a as any).start_time ? new Date((a as any).start_time).getTime() : Infinity;
+      const timeB = (b as any).start_time ? new Date((b as any).start_time).getTime() : Infinity;
+      return timeA - timeB;
+    } else if (sortOrder === "title") {
+      // Title is likely the same in DB and JS type
+      return a.title.localeCompare(b.title);
     }
     return 0;
   });
 
-  // Determine the view title based on currentView
+  // Determine view title (remains the same)
   let viewTitle = "All Tasks";
-  if (currentView === "inbox") {
-    viewTitle = "Inbox (Capture)";
-  } else if (currentView === "next") {
-    viewTitle = "Next Actions";
-  } else if (currentView === "waiting") {
-    viewTitle = "Waiting For";
-  } else if (currentView === "project") {
-    viewTitle = "Projects";
-  } else if (currentView === "someday") {
-    viewTitle = "Someday/Maybe";
-  } else if (currentView === "done") {
-    viewTitle = "Completed Tasks";
-  }
 
   return (
     <TaskContext.Provider
@@ -188,10 +184,6 @@ export function TaskProvider({ children }: { children: ReactNode }) {
         error: error as Error | null,
         currentView,
         setCurrentView,
-        currentContext,
-        setCurrentContext,
-        energyFilter,
-        setEnergyFilter,
         sortOrder,
         setSortOrder,
         addTask,
