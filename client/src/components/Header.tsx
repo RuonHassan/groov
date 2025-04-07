@@ -4,24 +4,17 @@ import { Badge } from "@/components/ui/badge";
 import { 
   ChevronLeft,
   ChevronRight,
-  Filter,
   Calendar,
   Timer
 } from "lucide-react";
 import WeeklyReviewModal from "./WeeklyReviewModal";
 import { format, differenceInWeeks } from "date-fns";
 import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import Sidebar from "./Sidebar";
 import { Link, useRoute } from "wouter";
 import { useWeek } from "@/contexts/WeekContext";
 
@@ -131,23 +124,6 @@ export default function Header() {
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
-
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button 
-                  variant="outline"
-                  size="icon"
-                  className="rounded-full h-8 w-8 ml-2"
-                >
-                  <Filter className="h-4 w-4" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-[300px]">
-                <div className="pt-6">
-                  <Sidebar />
-                </div>
-              </SheetContent>
-            </Sheet>
           </div>
         </div>
       </div>

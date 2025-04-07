@@ -140,9 +140,9 @@ export default function Calendar({ tasks }: CalendarProps) {
       
       <div className="flex-1 overflow-auto border-t border-gray-200">
         <div className="grid grid-cols-[auto_repeat(7,minmax(100px,1fr))] min-w-[800px]">
-          <div className="sticky top-0 z-10 bg-white border-r border-b border-gray-200 p-2 text-xs font-medium text-gray-500 text-center">Time</div>
+          <div className="sticky top-0 z-20 bg-white border-r border-b border-gray-200 p-2 text-xs font-medium text-gray-500 text-center">Time</div>
           {weekDays.map(day => (
-            <div key={day.toISOString()} className="sticky top-0 z-10 bg-white border-b border-gray-200 p-2 text-center">
+            <div key={day.toISOString()} className="sticky top-0 z-20 bg-white border-b border-gray-200 p-2 text-center">
               <div className="text-xs font-medium text-gray-500">{formatWeekdayHeader(day)}</div>
               <div className={`text-lg font-semibold ${isSameDay(day, new Date()) ? 'text-blue-600' : 'text-gray-900'}`}>
                 {formatDateHeader(day)}

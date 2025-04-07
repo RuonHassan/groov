@@ -11,22 +11,17 @@ interface TaskContextType {
   tasks: Task[];
   isLoading: boolean;
   error: Error | null;
-  currentView: string;
-  setCurrentView: (view: string) => void;
   sortOrder: string;
   setSortOrder: (order: string) => void;
   addTask: (taskPayload: Record<string, any>) => Promise<Task>;
   updateTask: (id: number, taskPayload: Record<string, any>) => Promise<Task | undefined>;
   deleteTask: (id: number) => Promise<void>;
-  filteredTasks: Task[];
-  viewTitle: string;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
 export function TaskProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
-  const [currentView, setCurrentView] = useState("all");
   const [sortOrder, setSortOrder] = useState("startTime");
   
   // Fetch tasks query - Fetches snake_case, maps to camelCase Task type?
@@ -158,9 +153,8 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     return deleteTaskMutation.mutateAsync(id);
   };
 
-  // Filter/Sort tasks: Uses the fetched `tasks` data.
-  // Data likely has snake_case keys from Supabase.
-  const filteredTasks = tasks.sort((a, b) => {
+  // Sort tasks directly
+  const sortedTasks = tasks.sort((a, b) => {
     if (sortOrder === "startTime") {
       // Sort by start_time (snake_case)
       const timeA = (a as any).start_time ? new Date((a as any).start_time).getTime() : Infinity;
@@ -173,24 +167,17 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     return 0;
   });
 
-  // Determine view title (remains the same)
-  let viewTitle = "All Tasks";
-
   return (
     <TaskContext.Provider
       value={{
-        tasks,
+        tasks: sortedTasks, // Provide sorted tasks
         isLoading,
         error: error as Error | null,
-        currentView,
-        setCurrentView,
         sortOrder,
         setSortOrder,
         addTask,
         updateTask,
         deleteTask,
-        filteredTasks,
-        viewTitle,
       }}
     >
       {children}

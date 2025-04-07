@@ -143,47 +143,61 @@ export default function TaskGrid() {
     }
   };
 
-  // Update renderSection to re-enable Quick Add UI
+  // Update renderSection to always show Quick Add UI below tasks for Today/Tomorrow
   const renderSection = (title: string, tasks: Task[], section: "today" | "tomorrow" | "future" | "someday", alwaysShow: boolean = false) => {
-    if (tasks.length === 0 && !alwaysShow && section !== "today" && section !== "tomorrow") return null; // Only hide Future/Someday if empty and not always shown
+    // Keep the condition to hide empty Future/Someday sections if not always shown
+    if (tasks.length === 0 && !alwaysShow && section !== "today" && section !== "tomorrow") return null;
 
-    // Check if the quick add input should be shown (only for Today/Tomorrow when empty)
-    const showQuickAdd = (section === "today" || section === "tomorrow") && tasks.length === 0;
+    // Determine if this section should have a Quick Add feature
+    const canQuickAdd = section === "today" || section === "tomorrow";
+
+    // Define the Quick Add UI elements directly (Button or Input)
+    const quickAddUI = canQuickAdd ? (
+      activeQuickAdd === section ? (
+        <div className="px-4 py-3 border-t border-gray-100">
+          <Input
+            autoFocus
+            placeholder={`Add task for ${title} & schedule...`}
+            value={quickTaskTitle}
+            onChange={(e) => setQuickTaskTitle(e.target.value)}
+            onKeyDown={(e) => handleQuickAddKeyDown(e, section)}
+            className="w-full"
+          />
+        </div>
+      ) : (
+        <div
+          className="px-4 py-3 border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
+          onClick={() => setActiveQuickAdd(section)}
+        >
+          <Button
+            variant={null}
+            className="w-full justify-start text-gray-500 hover:text-gray-900 bg-transparent hover:bg-transparent p-0 h-auto"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add task for {title.toLowerCase()}
+          </Button>
+        </div>
+      )
+    ) : null; // No Quick Add for Future/Someday
 
     return (
       <div>
         <h2 className="text-xl font-semibold text-gray-900 px-4 py-3">{title}</h2>
-        {tasks.length === 0 ? (
-          <div className="px-4 py-2 border-b border-gray-100">
-             {/* Restore Quick Add UI */} 
-             {showQuickAdd ? (
-               activeQuickAdd === section ? (
-                 <Input
-                   autoFocus
-                   placeholder={`Add task for ${title} & schedule...`}
-                   value={quickTaskTitle}
-                   onChange={(e) => setQuickTaskTitle(e.target.value)}
-                   onKeyDown={(e) => handleQuickAddKeyDown(e, section)}
-                   className="w-full"
-                 />
-               ) : (
-                 <Button 
-                   variant="ghost" 
-                   className="w-full justify-start text-gray-500 hover:text-gray-900"
-                   onClick={() => setActiveQuickAdd(section)}
-                 >
-                   <Plus className="h-4 w-4 mr-2" />
-                   Add task for {title.toLowerCase()}
-                 </Button>
-               )
-             ) : (
-               <div className="text-sm text-gray-400 italic">No tasks {title === 'Someday' ? 'yet' : `for ${title.toLowerCase()}`}</div>
-             )}
-          </div>
-        ) : (
-          tasks.map((task) => (
-            <TaskCard key={task.id} task={task} /> 
-          ))
+        {tasks.length > 0 && (
+           <div>
+             {tasks.map((task) => (
+               <TaskCard key={task.id} task={task} /> 
+             ))}
+           </div>
+        )}
+        {/* Render Quick Add UI (Button/Input with its own padding/border div) */}
+        {quickAddUI}
+
+        {/* Handle empty state message specifically for Future/Someday */}
+        {tasks.length === 0 && !canQuickAdd && (
+            <div className="px-4 py-2 border-b border-gray-100 text-sm text-gray-400 italic">
+              No tasks {title === 'Someday' ? 'yet' : `for ${title.toLowerCase()}`}
+            </div>
         )}
       </div>
     );

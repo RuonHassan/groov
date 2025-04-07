@@ -5,8 +5,6 @@ import { z } from "zod";
 import { 
   Dialog, 
   DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
   DialogFooter
 } from "@/components/ui/dialog";
 import {
@@ -14,13 +12,11 @@ import {
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { InsertTask, Task } from "@shared/schema";
 import { useTaskContext } from "@/contexts/TaskContext";
 import { X, Calendar, Clock, Palette } from "lucide-react";
@@ -166,70 +162,44 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit Task" : "New Task"}</DialogTitle>
-          <Button variant="ghost" size="icon" className="absolute right-4 top-4" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </DialogHeader>
-        
+      <DialogContent className="sm:max-w-md rounded-lg pt-6">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField control={form.control} name="title" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Title <span className="text-red-500">*</span></FormLabel>
                   <FormControl><Input placeholder="What needs to be done?" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
             )} />
             
+            <div className="flex gap-2 items-start">
+              <FormField control={form.control} name="startTime" render={({ field }) => (
+                     <FormItem className="flex-1">
+                       <FormControl><Input type="datetime-local" {...field} value={field.value || ""} placeholder="Start time" /></FormControl>
+                       <FormMessage />
+                     </FormItem>
+                 )} />
+              <FormField control={form.control} name="endTime" render={({ field }) => (
+                     <FormItem className="flex-1">
+                       <FormControl><Input type="datetime-local" {...field} value={field.value || ""} placeholder="End time" /></FormControl>
+                       <FormMessage />
+                     </FormItem>
+                 )} />
+            </div>
+           
+            <FormField control={form.control} name="color" render={({ field }) => (
+                   <FormItem>
+                     <FormControl><Input type="color" {...field} className="h-10 w-full p-1" /></FormControl>
+                     <FormMessage />
+                   </FormItem>
+               )} />
+
             <FormField control={form.control} name="notes" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
                   <FormControl><Textarea placeholder="Add details..." rows={3} {...field} value={field.value || ""} /></FormControl>
                   <FormMessage />
                 </FormItem>
             )} />
-
-            <Accordion type="single" collapsible className="w-full space-y-2">
-              <AccordionItem value="date-time" className="border rounded-md px-3">
-                <AccordionTrigger className="py-2 hover:no-underline text-sm font-medium">
-                   <div className="flex items-center gap-2"><Calendar className="h-4 w-4" /> Date & Time</div>
-                </AccordionTrigger>
-                <AccordionContent className="pt-4 pb-4 px-1 space-y-4">
-                   <FormField control={form.control} name="startTime" render={({ field }) => (
-                       <FormItem>
-                         <FormLabel>Start Time</FormLabel>
-                         <FormControl><Input type="datetime-local" {...field} value={field.value || ""} /></FormControl>
-                         <FormMessage />
-                       </FormItem>
-                   )} />
-                    <FormField control={form.control} name="endTime" render={({ field }) => (
-                       <FormItem>
-                         <FormLabel>End Time</FormLabel>
-                         <FormControl><Input type="datetime-local" {...field} value={field.value || ""} /></FormControl>
-                         <FormMessage />
-                       </FormItem>
-                   )} />
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="color" className="border rounded-md px-3">
-                 <AccordionTrigger className="py-2 hover:no-underline text-sm font-medium">
-                    <div className="flex items-center gap-2"><Palette className="h-4 w-4" /> Color</div>
-                 </AccordionTrigger>
-                 <AccordionContent className="pt-4 pb-4 px-1">
-                    <FormField control={form.control} name="color" render={({ field }) => (
-                       <FormItem>
-                         <FormLabel>Select Color</FormLabel>
-                         <FormControl><Input type="color" {...field} className="h-10 w-full p-1" /></FormControl>
-                         <FormMessage />
-                       </FormItem>
-                   )} />
-                 </AccordionContent>
-               </AccordionItem>
-            </Accordion> 
             
             <DialogFooter className="pt-4">
               <Button type="submit">
