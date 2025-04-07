@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTaskContext } from "@/contexts/TaskContext";
 import TaskCard from "./TaskCard";
 import NewTaskCard from "./NewTaskCard";
 import { AlertCircle, Plus } from "lucide-react";
 import { Task } from "@shared/schema";
-import { isToday, isTomorrow, parseISO, format, isValid, startOfDay, addMinutes, addDays as dfnsAddDays, isBefore } from "date-fns";
+import { isToday, isTomorrow, parseISO, format, isValid, startOfDay, addMinutes, addDays as dfnsAddDays, isBefore, isSameDay, isAfter } from "date-fns";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 
@@ -59,41 +59,44 @@ export default function TaskGrid() {
   const [quickTaskTitle, setQuickTaskTitle] = useState("");
   const [activeQuickAdd, setActiveQuickAdd] = useState<"today" | "tomorrow" | null>(null);
 
-  // Organize tasks into sections based on startTime
-  const organizedTasks = tasks.reduce((acc: { 
-    today: Task[], 
-    tomorrow: Task[], 
-    future: Task[], 
-    someday: Task[] 
-  }, task) => {
-    // Use updated Task type (should be camelCase from schema)
-    let relevantDate: Date | null = null;
-    try {
-      // Check start_time (snake_case) from fetched data
-      if (task.start_time && isValid(parseISO(task.start_time))) { 
-        relevantDate = parseISO(task.start_time);
-      } 
-      // No else if for dueDate as it's removed
-    } catch (e) {
-      console.error("Error parsing start_time for task:", task, e);
-    }
+  // Organize tasks into Today, Tomorrow, Future, Someday
+  const organizedTasks = useMemo(() => {
+    const today = startOfDay(new Date());
+    const tomorrow = startOfDay(dfnsAddDays(today, 1));
+    const dayAfterTomorrow = startOfDay(dfnsAddDays(today, 2));
 
-    if (relevantDate) {
-      if (isToday(relevantDate)) {
-        acc.today.push(task);
-      } else if (isTomorrow(relevantDate)) {
-        acc.tomorrow.push(task);
-      } else {
-        // startTime is valid but after tomorrow
-        acc.future.push(task); 
-      }
-    } else {
-      // Task has no valid startTime - categorize as Someday
-      acc.someday.push(task); 
-    }
+    // Filter out completed tasks FIRST
+    const activeTasks = tasks.filter(task => !task.completed_at); 
 
-    return acc;
-  }, { today: [], tomorrow: [], future: [], someday: [] });
+    // Now categorize the remaining active tasks
+    return activeTasks.reduce(
+      (acc, task) => {
+        if (task.start_time) {
+          const startTimeDate = startOfDay(parseISO(task.start_time));
+          if (isSameDay(startTimeDate, today)) {
+            acc.today.push(task);
+          } else if (isSameDay(startTimeDate, tomorrow)) {
+            acc.tomorrow.push(task);
+          } else if (isBefore(startTimeDate, today) || isAfter(startTimeDate, tomorrow)) {
+             // Tasks in the past (before today) or more than 1 day in the future
+             // Let's refine this slightly: if it's before today but *not* completed, maybe it belongs in Today?
+             // For now, keeping original logic: Past or >1 day future -> Future
+             // OR should past due tasks maybe show in 'Today' or a separate 'Overdue' section?
+             // Current logic puts past due tasks into 'Future'.
+             // Let's stick with Future for now for simplicity, but could revisit.
+             acc.future.push(task); 
+          } 
+          // If start_time exists but doesn't match today/tomorrow/future, it implicitly falls out
+          // This shouldn't happen with the current logic, but good to be aware of.
+        } else {
+          // Tasks without a start_time go to Someday
+          acc.someday.push(task);
+        }
+        return acc;
+      },
+      { today: [] as Task[], tomorrow: [] as Task[], future: [] as Task[], someday: [] as Task[] }
+    );
+  }, [tasks]); // Dependency is the main tasks list
 
   // Quick Add handler with slot finding
   const handleQuickAddKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>, section: "today" | "tomorrow") => {

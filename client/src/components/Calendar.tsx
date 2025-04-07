@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO, isWithinInterval, isValid } from 'date-fns';
+import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO, isWithinInterval, isValid, getHours, getMinutes } from 'date-fns';
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Task } from "@shared/schema";
@@ -71,17 +71,15 @@ export default function Calendar({ tasks }: CalendarProps) {
     }
   };
 
-  // Get TASKS for a specific day and time slot
+  // Get TASKS that START within a specific day and time slot
   const getTasksForTimeSlot = (date: Date, timeSlot: TimeSlot): Task[] => {
     return tasks.filter(task => {
-      // Task must have a start_time to be considered for a specific slot
       if (!task.start_time) return false;
-      
       try {
         const taskStart = parseISO(task.start_time);
         if (!isValid(taskStart)) return false;
-        // Check if task starts on the current day AND overlaps with the time slot
-        return isSameDay(taskStart, date) && isTaskInTimeSlot(task, date, timeSlot); 
+        // Check if task starts on the correct day AND within the correct hour
+        return isSameDay(taskStart, date) && getHours(taskStart) === timeSlot.hour;
       } catch (e) {
         console.error("Error parsing task start date:", task, e);
         return false;
@@ -92,8 +90,8 @@ export default function Calendar({ tasks }: CalendarProps) {
   // Handle click on a time slot to CREATE a new task
   const handleTimeSlotClick = (date: Date, slot: TimeSlot) => {
     const startTime = new Date(date.getFullYear(), date.getMonth(), date.getDate(), slot.hour, slot.minute);
-    // Default to 1 hour duration
-    const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); 
+    // Default to 30 minute duration (was 60)
+    const endTime = new Date(startTime.getTime() + 30 * 60 * 1000); 
 
     // Set default times for the modal
     setDefaultTaskTimes({
@@ -124,6 +122,14 @@ export default function Calendar({ tasks }: CalendarProps) {
     }
   };
 
+  // Helper function to check if a color is light
+  const isLightColor = (color: string): boolean => {
+    const c = color.substring(1);
+    const rgb = parseInt(c, 16);
+    const luma = (rgb >> 16) * 0.299 + (rgb >> 8 & 255) * 0.587 + (rgb & 255) * 0.114;
+    return luma > 128;
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-2 border-b">
@@ -150,23 +156,58 @@ export default function Calendar({ tasks }: CalendarProps) {
                 <span>{slot.formatted}</span>
               </div>
               {weekDays.map(day => {
-                const tasksInSlot = getTasksForTimeSlot(day, slot); 
+                // Get only tasks STARTING in this slot
+                const tasksStartingInSlot = getTasksForTimeSlot(day, slot); 
                 
                 return (
                   <div
                     key={day.toISOString() + slot.formatted}
-                    className="border-b border-r border-gray-100 p-1 h-16 relative cursor-pointer hover:bg-blue-50 transition-colors" 
+                    className="border-b border-r border-gray-100 h-16 relative cursor-pointer hover:bg-blue-50 transition-colors" 
                     onClick={() => handleTimeSlotClick(day, slot)}
                   >
-                    {tasksInSlot.map(task => {
+                    {/* Remove p-1 from parent div if tasks have their own padding */} 
+                    {tasksStartingInSlot.map(task => {
+                      const start = task.start_time ? parseISO(task.start_time) : null;
+                      const end = task.end_time ? parseISO(task.end_time) : null;
+                      const isCompleted = !!task.completed_at;
+
+                      if (!start || !end) return null;
+
+                      const startMinute = getMinutes(start);
+                      const endMinute = getMinutes(end);
+                      const durationInMinutes = (end.getTime() - start.getTime()) / (1000 * 60);
+
+                      // Calculate position and height relative to the HOURLY SLOT (60 mins)
+                      const topPercent = (startMinute / 60) * 100;
+                      // Height can exceed 100% if task is longer than an hour
+                      const heightPercent = (durationInMinutes / 60) * 100; 
+
+                      let taskClasses = "absolute left-1 right-1 rounded p-1 text-xs overflow-hidden z-10 shadow-sm transition-colors duration-150 ease-in-out";
+
+                      if (isCompleted) {
+                        taskClasses += " bg-gray-200 text-gray-500 border border-gray-300 cursor-default";
+                      } else {
+                        const bgColor = task.color || '#3b82f6';
+                        const textColor = isLightColor(bgColor) ? 'text-gray-900' : 'text-white';
+                        taskClasses += ` ${textColor} hover:opacity-90 cursor-pointer`;
+                      }
+
                       return (
                         <div
                           key={task.id}
-                          className="m-0.5 p-1 rounded text-xs leading-tight shadow overflow-hidden cursor-pointer hover:opacity-80"
-                          style={{ backgroundColor: task.color || '#3b82f6', color: 'white' }} 
-                          onClick={(e) => { e.stopPropagation(); handleTaskClick(task); }}
+                          className={taskClasses}
+                          style={{
+                            top: `${topPercent}%`,
+                            // Ensure minimum height for very short tasks?
+                            height: `${Math.max(heightPercent, 5)}%`, // e.g., min height 5%
+                            backgroundColor: isCompleted ? undefined : (task.color || '#3b82f6'),
+                          }}
+                          onClick={(e) => { 
+                              e.stopPropagation(); // Prevent time slot click
+                              if (!isCompleted) handleTaskClick(task);
+                          }}
                         >
-                          <p className="font-semibold truncate">{task.title}</p>
+                          <p className="font-medium truncate">{task.title}</p>
                         </div>
                       );
                     })}

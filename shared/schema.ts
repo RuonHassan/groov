@@ -10,6 +10,7 @@ export const tasks = pgTable("tasks", {
   color: text("color"), // -> color (can add default in DB or frontend)
   startTime: timestamp("start_time"), // JS: startTime -> SQL: start_time
   endTime: timestamp("end_time"),     // JS: endTime -> SQL: end_time
+  completedAt: timestamp("completed_at"), // JS: completedAt -> SQL: completed_at
   createdAt: timestamp("created_at").notNull().defaultNow(), // JS: createdAt -> SQL: created_at
   updatedAt: timestamp("updated_at").notNull().defaultNow(), // JS: updatedAt -> SQL: updated_at
   // userId: integer("user_id"), // Keep if using user ID
@@ -37,6 +38,7 @@ export const taskSchema = z.object({
   color: z.string().nullable(),
   start_time: z.string().datetime({ offset: true }).nullable(), // snake_case
   end_time: z.string().datetime({ offset: true }).nullable(),   // snake_case
+  completed_at: z.string().datetime({ offset: true }).nullable(), // snake_case
   created_at: z.string().datetime({ offset: true }), // snake_case
   updated_at: z.string().datetime({ offset: true }), // snake_case
   // user_id: z.number().int().optional(), // snake_case if present
