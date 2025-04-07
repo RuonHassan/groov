@@ -45,8 +45,52 @@ export default function Header() {
     <header className="bg-white border-b border-gray-100">
       <div className="w-full mx-auto px-4">
         <div className="flex justify-between items-center h-14">
-          {/* Left side - Logo and navigation links */}
-          <div className="flex items-center space-x-4">
+          {/* Left side - Navigation links */}
+          <div className="flex-1 flex justify-start items-center space-x-2">
+            {/* Calendar/Pomodoro Buttons - Moved here */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost"
+                    size="icon"
+                    asChild
+                    className={`rounded-full ${isOnCalendar ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
+                  >
+                    <Link to={isOnCalendar ? "/" : "/calendar"}>
+                      <Calendar className="h-5 w-5" />
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {isOnCalendar ? 'View Tasks' : 'View Calendar'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost"
+                    size="icon"
+                    asChild
+                    className={`rounded-full ${isOnPomodoro ? 'bg-green-100 text-green-700' : 'text-gray-700 hover:bg-gray-100'}`}
+                  >
+                    <Link to={isOnPomodoro ? "/" : "/pomodoro"}>
+                      <Timer className="h-5 w-5" />
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {isOnPomodoro ? 'View Tasks' : 'Pomodoro Timer'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+
+          {/* Center - Logo */}
+          <div className="flex-1 flex justify-center">
             <Link to="/">
               <img 
                 src="/groov.png" 
@@ -54,52 +98,10 @@ export default function Header() {
                 className="h-8 w-auto cursor-pointer"
               />
             </Link>
-
-            <div className="flex items-center space-x-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost"
-                      size="icon"
-                      asChild
-                      className={`rounded-full ${isOnCalendar ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
-                    >
-                      <Link to={isOnCalendar ? "/" : "/calendar"}>
-                        <Calendar className="h-5 w-5" />
-                      </Link>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {isOnCalendar ? 'View Tasks' : 'View Calendar'}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost"
-                      size="icon"
-                      asChild
-                      className={`rounded-full ${isOnPomodoro ? 'bg-green-100 text-green-700' : 'text-gray-700 hover:bg-gray-100'}`}
-                    >
-                      <Link to={isOnPomodoro ? "/" : "/pomodoro"}>
-                        <Timer className="h-5 w-5" />
-                      </Link>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {isOnPomodoro ? 'View Tasks' : 'Pomodoro Timer'}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
           </div>
           
           {/* Right side - Week Navigation and Filter */}
-          <div className="flex items-center space-x-2">
+          <div className="flex-1 flex justify-end items-center space-x-2">
             <Button 
               variant="outline"
               size="icon"
