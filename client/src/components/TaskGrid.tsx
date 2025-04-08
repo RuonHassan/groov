@@ -101,57 +101,21 @@ export default function TaskGrid() {
   // Quick Add handler with slot finding
   const handleQuickAddKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>, section: "today" | "tomorrow") => {
     if (e.key === "Enter" && quickTaskTitle.trim()) {
-      let initialSearchTime: Date;
-      let finalAvailableStartTime: Date | null = null;
-
+      // Set date based on section without specific time
+      const today = new Date();
+      
+      // Create a date at the start of the day (midnight)
+      let taskDate: Date;
       if (section === "today") {
-        // Start search from the current time today
-        initialSearchTime = new Date();
-        // Optional: Round initialStartTime to nearest 15/30 min if desired
-        // initialSearchTime.setMinutes(Math.ceil(initialSearchTime.getMinutes() / 30) * 30, 0, 0);
-        
-        finalAvailableStartTime = findNextAvailableSlot(initialSearchTime, tasks);
-
-        // If no slot found today, try tomorrow starting at 8 AM
-        if (!finalAvailableStartTime) {
-          console.log("No slot found for today, checking tomorrow...");
-          let tomorrowSearchTime = startOfDay(dfnsAddDays(new Date(), 1));
-          tomorrowSearchTime.setHours(8, 0, 0, 0); // Start tomorrow's search at 8:00 AM
-          finalAvailableStartTime = findNextAvailableSlot(tomorrowSearchTime, tasks);
-        }
-
-      } else { // section === "tomorrow"
-        // Start search from 8 AM tomorrow
-        initialSearchTime = startOfDay(dfnsAddDays(new Date(), 1));
-        initialSearchTime.setHours(8, 0, 0, 0); 
-        finalAvailableStartTime = findNextAvailableSlot(initialSearchTime, tasks);
+        taskDate = startOfDay(today);
+      } else { // tomorrow
+        taskDate = startOfDay(dfnsAddDays(today, 1));
       }
-
-      // If still no slot found (e.g., tomorrow is also full), handle error or default
-      if (!finalAvailableStartTime) {
-        console.error("Could not find any available slot for today or tomorrow.");
-        // Maybe add task without time, or show error toast?
-        // For now, let's just not add the task if no slot is found.
-        // Alternatively, add it without start/end times:
-        /*
-        await addTask({
-          title: quickTaskTitle,
-          color: "#3b82f6", // Default blue
-        });
-        setQuickTaskTitle("");
-        setActiveQuickAdd(null);
-        */
-        return; // Exit if no slot found
-      }
-
-      // Calculate end time based on the found start time
-      const availableEndTime = addMinutes(finalAvailableStartTime, 30); // 30-minute duration
-
+      
       // Use snake_case for payload keys matching DB schema
       const payload: Record<string, any> = {
         title: quickTaskTitle,
-        start_time: finalAvailableStartTime.toISOString(),
-        end_time: availableEndTime.toISOString(),   
+        start_time: taskDate.toISOString(),
         color: "#3b82f6", // Default blue
       };
 
@@ -208,7 +172,7 @@ export default function TaskGrid() {
 
     return (
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 px-4 py-3 border-t border-b border-t-gray-200 border-b-gray-300">{title}</h2>
+        <h2 className="text-xl font-semibold text-gray-900 px-4 py-3 border-t border-b border-t-gray-200 border-b-black">{title}</h2>
         {tasks.length > 0 && (
            <div>
              {tasks.map((task) => (
