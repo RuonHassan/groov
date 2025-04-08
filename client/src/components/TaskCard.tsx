@@ -120,7 +120,7 @@ export default function TaskCard({ task }: TaskCardProps) {
               className="h-7 w-7 rounded-full flex-shrink-0"
               title="Edit Task Details"
             >
-              <Calendar className="h-4 w-4" />
+              <Calendar className="h-4 w-4 text-black" />
             </Button>
             
             <Button
@@ -130,7 +130,7 @@ export default function TaskCard({ task }: TaskCardProps) {
               className="h-7 w-7 rounded-full flex-shrink-0"
               title="Mark complete"
             >
-              <CheckCircle className="h-4 w-4" />
+              <CheckCircle className="h-4 w-4 text-black" />
             </Button>
           </div>
 
