@@ -81,20 +81,20 @@ export default function TaskCard({ task }: TaskCardProps) {
     <>
       <div className="relative bg-gray-100 overflow-hidden rounded-lg mb-1">
         <motion.div
-          className="absolute inset-y-0 left-0 w-full bg-black flex items-center justify-start px-6"
+          className="absolute inset-y-0 left-0 w-full bg-red-500 flex items-center justify-start px-6"
           style={{ opacity: deleteOpacity, pointerEvents: 'none' }}
         >
           <motion.div style={{ scale: deleteScale }}>
-            <Trash2 className="h-5 w-5 text-white" />
+            <Trash2 className="h-5 w-5 text-black" />
           </motion.div>
         </motion.div>
         
         <motion.div
-          className="absolute inset-y-0 right-0 w-full bg-black flex items-center justify-end px-6"
+          className="absolute inset-y-0 right-0 w-full bg-green-500 flex items-center justify-end px-6"
           style={{ opacity: completeOpacity, pointerEvents: 'none' }}
         >
           <motion.div style={{ scale: completeScale }}>
-            <CheckCircle className="h-5 w-5 text-white" />
+            <CheckCircle className="h-5 w-5 text-black" />
           </motion.div>
         </motion.div>
         
