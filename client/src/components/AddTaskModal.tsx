@@ -56,7 +56,7 @@ const formatToISO = (dateTimeLocal: string | null | undefined): string | null =>
 const taskFormValidationSchema = z.object({
   title: z.string().min(1, { message: "Title is required" }),
   notes: z.string().optional().nullable(),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid color hex").optional().default("#3b82f6"),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid color hex").optional().default("#5D2E8C"),
   startTime: z.string().optional().nullable(),
   endTime: z.string().optional().nullable(),
 }).refine(data => {
@@ -88,11 +88,11 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormValidationSchema),
     defaultValues: {
-      title: "",
-      notes: "",
-      color: "#3b82f6",
-      startTime: "",
-      endTime: "",
+      title: task?.title || "",
+      notes: task?.notes || "",
+      color: task?.color || "#5D2E8C",
+      startTime: task?.start_time || defaultStartTime || "",
+      endTime: task?.end_time || defaultEndTime || "",
     },
   });
 
@@ -111,7 +111,7 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
       form.reset({
         title: "",
         notes: "",
-        color: "#3b82f6",
+        color: "#5D2E8C",
         startTime: formatDateTimeLocal(defaultStartTime),
         endTime: formatDateTimeLocal(defaultEndTime),
       });
@@ -119,7 +119,7 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
       form.reset({
         title: "",
         notes: "",
-        color: "#3b82f6",
+        color: "#5D2E8C",
         startTime: "",
         endTime: "",
       });

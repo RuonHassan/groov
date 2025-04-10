@@ -15,6 +15,7 @@ import UpdatePasswordPage from "@/pages/UpdatePasswordPage";
 import { WeekProvider } from "./contexts/WeekContext";
 import Layout from "@/components/Layout";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { GoogleCalendarProvider } from "./contexts/GoogleCalendarContext";
 
 // Component to protect routes
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
@@ -76,12 +77,14 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TaskProvider>
-          <WeekProvider>
-            <Router />
-            <Toaster />
-          </WeekProvider>
-        </TaskProvider>
+        <GoogleCalendarProvider>
+          <TaskProvider>
+            <WeekProvider>
+              <Router />
+              <Toaster />
+            </WeekProvider>
+          </TaskProvider>
+        </GoogleCalendarProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

@@ -29,6 +29,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import GoogleCalendarButton from "./GoogleCalendarButton";
 
 export default function Header() {
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -88,6 +89,10 @@ export default function Header() {
                 <DropdownMenuItem className="flex items-center cursor-pointer">
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <GoogleCalendarButton />
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 

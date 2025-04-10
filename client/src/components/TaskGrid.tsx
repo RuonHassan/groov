@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useTaskContext } from "@/contexts/TaskContext";
 import TaskCard from "./TaskCard";
 import NewTaskCard from "./NewTaskCard";
-import { AlertCircle, Plus } from "lucide-react";
+import { AlertCircle, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { Task } from "@shared/schema";
 import { isToday, isTomorrow, parseISO, format, isValid, startOfDay, addMinutes, addDays as dfnsAddDays, isBefore, isSameDay, isAfter } from "date-fns";
 import { Input } from "./ui/input";
@@ -58,45 +58,43 @@ export default function TaskGrid() {
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [quickTaskTitle, setQuickTaskTitle] = useState("");
   const [activeQuickAdd, setActiveQuickAdd] = useState<"today" | "tomorrow" | null>(null);
+  const [showCompleted, setShowCompleted] = useState(false);
 
-  // Organize tasks into Today, Tomorrow, Future, Someday
+  // Organize tasks into Today, Tomorrow, Future, Someday, and Completed
   const organizedTasks = useMemo(() => {
     const today = startOfDay(new Date());
     const tomorrow = startOfDay(dfnsAddDays(today, 1));
     const dayAfterTomorrow = startOfDay(dfnsAddDays(today, 2));
 
-    // Filter out completed tasks FIRST
-    const activeTasks = tasks.filter(task => !task.completed_at); 
+    // First separate completed tasks
+    const completedTasks = tasks.filter(task => task.completed_at);
+    const activeTasks = tasks.filter(task => !task.completed_at);
 
     // Now categorize the remaining active tasks
-    return activeTasks.reduce(
+    const organized = activeTasks.reduce(
       (acc, task) => {
         if (task.start_time) {
           const startTimeDate = startOfDay(parseISO(task.start_time));
-          if (isSameDay(startTimeDate, today)) {
+          if (isBefore(startTimeDate, today)) {
+            // Move overdue tasks to someday
+            acc.someday.push(task);
+          } else if (isSameDay(startTimeDate, today)) {
             acc.today.push(task);
           } else if (isSameDay(startTimeDate, tomorrow)) {
             acc.tomorrow.push(task);
-          } else if (isBefore(startTimeDate, today) || isAfter(startTimeDate, tomorrow)) {
-             // Tasks in the past (before today) or more than 1 day in the future
-             // Let's refine this slightly: if it's before today but *not* completed, maybe it belongs in Today?
-             // For now, keeping original logic: Past or >1 day future -> Future
-             // OR should past due tasks maybe show in 'Today' or a separate 'Overdue' section?
-             // Current logic puts past due tasks into 'Future'.
-             // Let's stick with Future for now for simplicity, but could revisit.
-             acc.future.push(task); 
-          } 
-          // If start_time exists but doesn't match today/tomorrow/future, it implicitly falls out
-          // This shouldn't happen with the current logic, but good to be aware of.
+          } else {
+            acc.future.push(task);
+          }
         } else {
-          // Tasks without a start_time go to Someday
           acc.someday.push(task);
         }
         return acc;
       },
       { today: [] as Task[], tomorrow: [] as Task[], future: [] as Task[], someday: [] as Task[] }
     );
-  }, [tasks]); // Dependency is the main tasks list
+
+    return { ...organized, completed: completedTasks };
+  }, [tasks]);
 
   // Quick Add handler with slot finding
   const handleQuickAddKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>, section: "today" | "tomorrow") => {
@@ -134,12 +132,16 @@ export default function TaskGrid() {
   };
 
   // Update renderSection to always show Quick Add UI below tasks for Today/Tomorrow
-  const renderSection = (title: string, tasks: Task[], section: "today" | "tomorrow" | "future" | "someday", alwaysShow: boolean = false) => {
+  const renderSection = (title: string, tasks: Task[], section: "today" | "tomorrow" | "future" | "someday" | "completed", alwaysShow: boolean = false) => {
     // Keep the condition to hide empty Future/Someday sections if not always shown
     if (tasks.length === 0 && !alwaysShow && section !== "today" && section !== "tomorrow") return null;
 
     // Determine if this section should have a Quick Add feature
     const canQuickAdd = section === "today" || section === "tomorrow";
+
+    // Special styling for completed section
+    const isCompletedSection = section === "completed";
+    const sectionHeaderClasses = `font-semibold ${isCompletedSection ? 'text-gray-500 text-sm py-2' : 'text-gray-900 text-xl py-3'} px-4 border-t border-b ${isCompletedSection ? 'border-gray-200' : 'border-t-gray-200 border-b-black'} flex items-center justify-between cursor-${isCompletedSection ? 'pointer' : 'default'}`;
 
     // Define the Quick Add UI elements directly (Button or Input)
     const quickAddUI = canQuickAdd ? (
@@ -163,8 +165,7 @@ export default function TaskGrid() {
             variant={null}
             className="w-full justify-start text-gray-500 hover:text-gray-900 bg-transparent hover:bg-transparent p-0 h-auto"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Add task for {title.toLowerCase()}
+            <Plus className="h-4 w-4" />
           </Button>
         </div>
       )
@@ -172,22 +173,37 @@ export default function TaskGrid() {
 
     return (
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 px-4 py-3 border-t border-b border-t-gray-200 border-b-black">{title}</h2>
-        {tasks.length > 0 && (
-           <div>
-             {tasks.map((task) => (
-               <TaskCard key={task.id} task={task} /> 
-             ))}
-           </div>
-        )}
-        {/* Render Quick Add UI (Button/Input with its own padding/border div) */}
-        {quickAddUI}
+        <div 
+          className={sectionHeaderClasses}
+          onClick={() => isCompletedSection && setShowCompleted(!showCompleted)}
+        >
+          <h2>{title}</h2>
+          {isCompletedSection && (
+            <span className="text-xs font-normal">
+              {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
+            </span>
+          )}
+        </div>
+        
+        {(!isCompletedSection || showCompleted) && (
+          <>
+            {tasks.length > 0 && (
+              <div className={isCompletedSection ? 'opacity-75' : ''}>
+                {tasks.map((task) => (
+                  <TaskCard key={task.id} task={task} />
+                ))}
+              </div>
+            )}
+            {/* Render Quick Add UI (Button/Input with its own padding/border div) */}
+            {quickAddUI}
 
-        {/* Handle empty state message specifically for Future/Someday */}
-        {tasks.length === 0 && !canQuickAdd && (
-            <div className="px-4 py-2 border-b border-gray-100 text-sm text-gray-400 italic">
-              No tasks {title === 'Someday' ? 'yet' : `for ${title.toLowerCase()}`}
-            </div>
+            {/* Handle empty state message specifically for Future/Someday */}
+            {tasks.length === 0 && !canQuickAdd && !isCompletedSection && (
+              <div className="px-4 py-2 border-b border-gray-100 text-sm text-gray-400 italic">
+                No tasks {title === 'Someday' ? 'yet' : `for ${title.toLowerCase()}`}
+              </div>
+            )}
+          </>
         )}
       </div>
     );
@@ -199,25 +215,12 @@ export default function TaskGrid() {
 
   return (
     <div className="w-full">
-      {/* Check if there are ANY tasks before rendering sections - Maybe remove this check? */}
-      {/* {tasks.length > 0 ? ( */}
-        <>
-          {/* Pass true to alwaysShow for all main sections */}
-          {renderSection("Today", organizedTasks.today, "today", true)}
-          {renderSection("Tomorrow", organizedTasks.tomorrow, "tomorrow", true)}
-          {renderSection("Future", organizedTasks.future, "future", true)}
-          {renderSection("Someday", organizedTasks.someday, "someday", true)}
-          {/* Re-add NewTaskCard or similar mechanism here if desired */}
-          <NewTaskCard />
-        </>
-      {/* ) : ( ... empty state ... ) */} 
-      {/* Remove the overall empty state if sections always show */}
-      {/* {tasks.length === 0 && (
-        <div className="flex flex-col items-center justify-center h-full text-gray-500 p-6">
-          <AlertCircle className="w-12 h-12 mb-2" />
-          <p>No tasks yet!</p>
-        </div>
-      )} */}
+      {renderSection("Today", organizedTasks.today, "today", true)}
+      {renderSection("Tomorrow", organizedTasks.tomorrow, "tomorrow", true)}
+      {renderSection("Future", organizedTasks.future, "future", true)}
+      {renderSection("Someday", organizedTasks.someday, "someday", true)}
+      {renderSection(`Completed`, organizedTasks.completed, "completed", true)}
+      <NewTaskCard />
     </div>
   );
 }

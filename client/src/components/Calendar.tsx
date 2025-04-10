@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useWeek } from "@/contexts/WeekContext";
 import { supabase } from "@/lib/supabaseClient";
 import AddTaskModal from './AddTaskModal';
+import { useGoogleCalendar } from '@/contexts/GoogleCalendarContext';
 
 // Time slot definition
 interface TimeSlot {
@@ -15,17 +16,26 @@ interface TimeSlot {
   formatted: string;
 }
 
-// Generate time slots (e.g., 8am to 10pm, hourly)
-const generateTimeSlots = (): TimeSlot[] => {
+interface GoogleEvent {
+  id: string;
+  summary: string;
+  start: { dateTime: string };
+  end: { dateTime: string };
+  colorId?: string;
+}
+
+// Generate time slots from 8 AM to 8 PM
+function generateTimeSlots(): TimeSlot[] {
   const slots: TimeSlot[] = [];
-  for (let hour = 8; hour < 22; hour++) {
-    const isPM = hour >= 12;
-    const displayHour = hour % 12 || 12;
-    const formattedTime = `${displayHour}:00 ${isPM ? 'PM' : 'AM'}`;
-    slots.push({ hour, minute: 0, formatted: formattedTime });
+  for (let hour = 8; hour <= 20; hour++) {
+    slots.push({
+      hour,
+      minute: 0,
+      formatted: format(new Date().setHours(hour, 0), 'h:mm a')
+    });
   }
   return slots;
-};
+}
 
 const timeSlots = generateTimeSlots();
 
@@ -40,56 +50,80 @@ export default function Calendar({ tasks }: CalendarProps) {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [defaultTaskTimes, setDefaultTaskTimes] = useState<{ start_time: string | null; end_time: string | null }>({ start_time: null, end_time: null });
+  const { isConnected, calendars, fetchEvents } = useGoogleCalendar();
+  const [googleEvents, setGoogleEvents] = useState<GoogleEvent[]>([]);
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); 
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
+
+  // Fetch Google Calendar events when the week changes
+  useEffect(() => {
+    const fetchGoogleEvents = async () => {
+      if (!isConnected || calendars.length === 0) return;
+
+      try {
+        const allEvents = await Promise.all(
+          calendars.map(calendar => 
+            fetchEvents(calendar.id, weekStart, weekEnd)
+          )
+        );
+
+        // Flatten and deduplicate events
+        const events = Array.from(new Set(allEvents.flat()));
+        setGoogleEvents(events);
+      } catch (error) {
+        console.error('Error fetching Google Calendar events:', error);
+        toast({
+          title: "Calendar Error",
+          description: "Could not fetch Google Calendar events",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchGoogleEvents();
+  }, [isConnected, calendars, weekStart, weekEnd, fetchEvents]);
+
   const allWeekDays = Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
   const weekDays = allWeekDays.filter(day => {
       const dayOfWeek = getDay(day);
       return dayOfWeek !== 0 && dayOfWeek !== 6; // Exclude Sunday (0) and Saturday (6)
   });
-  const desktopWeekDays = allWeekDays; // Keep all days for desktop view logic if needed, or adjust grid logic
+  const desktopWeekDays = allWeekDays;
 
   const formatWeekdayHeader = (date: Date) => format(date, 'EEE');
   const formatDateHeader = (date: Date) => format(date, 'd');
 
-  // Check if a TASK overlaps with a specific time slot
-  const isTaskInTimeSlot = (task: Task, date: Date, timeSlot: TimeSlot): boolean => {
-    // Task must have start and end times to be placed precisely
-    if (!task.start_time || !task.end_time) return false; 
+  // Check if a task or event overlaps with a specific time slot
+  const isItemInTimeSlot = (startTime: string | null, endTime: string | null, date: Date, timeSlot: TimeSlot): boolean => {
+    if (!startTime || !endTime) return false;
     
     try {
-      const taskStart = parseISO(task.start_time); 
-      const taskEnd = parseISO(task.end_time);
-      if (!isValid(taskStart) || !isValid(taskEnd)) return false; // Skip if dates are invalid
+      const itemStart = parseISO(startTime);
+      const itemEnd = parseISO(endTime);
+      if (!isValid(itemStart) || !isValid(itemEnd)) return false;
 
-      // Calculate the start and end of the time slot (e.g., 30 or 60 mins)
-      // Assuming hourly slots for now based on generateTimeSlots
       const slotStart = new Date(date.getFullYear(), date.getMonth(), date.getDate(), timeSlot.hour, timeSlot.minute);
-      const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000); // Add 60 minutes for hourly slot
+      const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
 
-      // Check for overlap: task starts before slot ends AND task ends after slot starts
-      return taskStart < slotEnd && taskEnd > slotStart;
+      return itemStart < slotEnd && itemEnd > slotStart;
     } catch (e) {
-      console.error("Error parsing task dates:", task, e);
-      return false; 
+      console.error("Error parsing dates:", e);
+      return false;
     }
   };
 
-  // Get TASKS that START within a specific day and time slot
-  const getTasksForTimeSlot = (date: Date, timeSlot: TimeSlot): Task[] => {
-    return tasks.filter(task => {
-      if (!task.start_time) return false;
-      try {
-        const taskStart = parseISO(task.start_time);
-        if (!isValid(taskStart)) return false;
-        // Check if task starts on the correct day AND within the correct hour
-        return isSameDay(taskStart, date) && getHours(taskStart) === timeSlot.hour;
-      } catch (e) {
-        console.error("Error parsing task start date:", task, e);
-        return false;
-      }
-    });
+  // Get tasks and events that start within a specific day and time slot
+  const getItemsForTimeSlot = (date: Date, timeSlot: TimeSlot) => {
+    const tasksInSlot = tasks.filter(task => 
+      task.start_time && task.end_time && isItemInTimeSlot(task.start_time, task.end_time, date, timeSlot)
+    );
+
+    const eventsInSlot = googleEvents.filter(event => 
+      event.start?.dateTime && event.end?.dateTime && isItemInTimeSlot(event.start.dateTime, event.end.dateTime, date, timeSlot)
+    );
+
+    return [...tasksInSlot, ...eventsInSlot];
   };
 
   // Handle click on a time slot to CREATE a new task
@@ -137,10 +171,10 @@ export default function Calendar({ tasks }: CalendarProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-3 border-t border-b border-t-gray-200 border-b-black">
-          <span className="font-semibold text-xl">
-              {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
-          </span>
+      <div className="flex items-center justify-between p-2 border-b">
+        <span className="font-semibold text-xl">
+          {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
+        </span>
       </div>
       
       <div className="flex-1 overflow-auto border-t border-gray-200">
@@ -169,8 +203,7 @@ export default function Calendar({ tasks }: CalendarProps) {
               {desktopWeekDays.map(day => {
                 const dayOfWeek = getDay(day);
                 const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-                // Get only tasks STARTING in this slot
-                const tasksStartingInSlot = getTasksForTimeSlot(day, slot); 
+                const itemsInSlot = getItemsForTimeSlot(day, slot);
                 
                 return (
                   <div
@@ -178,49 +211,49 @@ export default function Calendar({ tasks }: CalendarProps) {
                     className={`border-b border-r border-gray-100 h-16 relative cursor-pointer hover:bg-blue-50 transition-colors ${isWeekend ? 'hidden md:block' : ''}`}
                     onClick={() => handleTimeSlotClick(day, slot)}
                   >
-                    {/* Remove p-1 from parent div if tasks have their own padding */} 
-                    {tasksStartingInSlot.map(task => {
-                      const start = task.start_time ? parseISO(task.start_time) : null;
-                      const end = task.end_time ? parseISO(task.end_time) : null;
-                      const isCompleted = !!task.completed_at;
+                    {itemsInSlot.map(item => {
+                      const isGoogleEvent = 'summary' in item;
+                      const title = isGoogleEvent ? item.summary : item.title;
+                      const start = isGoogleEvent ? item.start.dateTime : item.start_time!;
+                      const end = isGoogleEvent ? item.end.dateTime : item.end_time!;
+                      const startDate = parseISO(start);
+                      const endDate = parseISO(end);
+                      const isCompleted = !isGoogleEvent && !!item.completed_at;
 
-                      if (!start || !end) return null;
-
-                      const startMinute = getMinutes(start);
-                      const endMinute = getMinutes(end);
-                      const durationInMinutes = (end.getTime() - start.getTime()) / (1000 * 60);
-
-                      // Calculate position and height relative to the HOURLY SLOT (60 mins)
+                      const startMinute = getMinutes(startDate);
+                      const durationInMinutes = (endDate.getTime() - startDate.getTime()) / (1000 * 60);
                       const topPercent = (startMinute / 60) * 100;
-                      // Height can exceed 100% if task is longer than an hour
-                      const heightPercent = (durationInMinutes / 60) * 100; 
+                      const heightPercent = (durationInMinutes / 60) * 100;
 
                       let taskClasses = "absolute left-1 right-1 rounded p-1 text-xs overflow-hidden z-10 shadow-sm transition-colors duration-150 ease-in-out";
 
                       if (isCompleted) {
                         taskClasses += " bg-gray-200 text-gray-500 border border-gray-300 cursor-default";
                       } else {
-                        const bgColor = task.color || '#3b82f6';
+                        const bgColor = isGoogleEvent ? '#7D2A4D' : (item.color || '#3b82f6');
                         const textColor = isLightColor(bgColor) ? 'text-gray-900' : 'text-white';
-                        taskClasses += ` ${textColor} hover:opacity-90 cursor-pointer`;
+                        taskClasses += ` ${textColor} hover:opacity-90 ${isGoogleEvent ? 'cursor-default' : 'cursor-pointer'}`;
                       }
 
                       return (
                         <div
-                          key={task.id}
+                          key={isGoogleEvent ? item.id : item.id.toString()}
                           className={taskClasses}
                           style={{
                             top: `${topPercent}%`,
-                            // Ensure minimum height for very short tasks?
-                            height: `${Math.max(heightPercent, 5)}%`, // e.g., min height 5%
-                            backgroundColor: isCompleted ? undefined : (task.color || '#3b82f6'),
+                            height: `${Math.max(heightPercent, 5)}%`,
+                            backgroundColor: isCompleted ? undefined : (isGoogleEvent ? '#7D2A4D' : item.color || '#3b82f6'),
                           }}
-                          onClick={(e) => { 
-                              e.stopPropagation(); // Prevent time slot click
-                              if (!isCompleted) handleTaskClick(task);
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isGoogleEvent && !isCompleted) {
+                              handleTaskClick(item as Task);
+                            }
                           }}
                         >
-                          <p className="font-medium truncate">{task.title}</p>
+                          <p className="font-medium truncate">
+                            {isGoogleEvent && '🗓️ '}{title}
+                          </p>
                         </div>
                       );
                     })}
@@ -235,9 +268,9 @@ export default function Calendar({ tasks }: CalendarProps) {
       <AddTaskModal 
         open={showTaskModal}
         onClose={() => {
-             setShowTaskModal(false);
-             setEditingTask(null);
-             setDefaultTaskTimes({ start_time: null, end_time: null });
+          setShowTaskModal(false);
+          setEditingTask(null);
+          setDefaultTaskTimes({ start_time: null, end_time: null });
         }}
         task={editingTask ?? undefined}
         isEditing={!!editingTask}
