@@ -141,7 +141,16 @@ export default function TaskGrid() {
 
     // Special styling for completed section
     const isCompletedSection = section === "completed";
-    const sectionHeaderClasses = `font-semibold ${isCompletedSection ? 'text-gray-500 text-sm py-2' : 'text-gray-900 text-xl py-3'} px-4 border-t border-b ${isCompletedSection ? 'border-gray-200' : 'border-t-gray-200 border-b-black'} flex items-center justify-between cursor-${isCompletedSection ? 'pointer' : 'default'}`;
+    const isTodaySection = section === "today";
+    const sectionHeaderClasses = `font-semibold ${
+      isCompletedSection 
+        ? 'text-gray-500 text-sm py-1' 
+        : 'text-gray-900 text-xl pb-1 pt-3'
+    } pl-2 pr-4 ${
+      isCompletedSection 
+        ? 'border-t border-b border-gray-200' 
+        : `${isTodaySection ? 'md:border-t' : 'border-t'} border-t-gray-200 border-b-2 border-b-gray-800`
+    } flex items-end justify-between cursor-${isCompletedSection ? 'pointer' : 'default'}`;
 
     // Define the Quick Add UI elements directly (Button or Input)
     const quickAddUI = canQuickAdd ? (
@@ -165,7 +174,7 @@ export default function TaskGrid() {
             variant={null}
             className="w-full justify-start text-gray-500 hover:text-gray-900 bg-transparent hover:bg-transparent p-0 h-auto"
           >
-            <Plus className="h-4 w-4" />
+            &nbsp;
           </Button>
         </div>
       )

@@ -5,7 +5,7 @@ import AddTaskModal from "./AddTaskModal";
 import { Button } from "@/components/ui/button";
 import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, Calendar, Trash2 } from "lucide-react";
+import { CheckCircle, Trash2 } from "lucide-react";
 
 interface TaskCardProps {
   task: Task;
@@ -79,7 +79,7 @@ export default function TaskCard({ task }: TaskCardProps) {
 
   return (
     <>
-      <div className="relative bg-gray-100 overflow-hidden rounded-lg mb-1">
+      <div className="relative bg-gray-100 overflow-hidden rounded-lg mb-0.5">
         <motion.div
           className="absolute inset-y-0 left-0 w-full bg-red-500 flex items-center justify-start px-6"
           style={{ opacity: deleteOpacity, pointerEvents: 'none' }}
@@ -104,7 +104,7 @@ export default function TaskCard({ task }: TaskCardProps) {
           dragConstraints={{ left: 0, right: 0 }}
           dragElastic={0.2}
           onDragEnd={handleDragEnd}
-          className="relative flex items-center justify-between w-full py-3 px-4 bg-white border-b border-gray-100 cursor-pointer hover:bg-gray-50 z-10"
+          className="relative flex items-center justify-between w-full py-1 px-4 bg-white border-b border-gray-100 cursor-pointer hover:bg-gray-50 z-10"
           onClick={handleCardClick}
           whileTap={{ scale: 0.99, cursor: "grabbing" }}
         >
@@ -116,21 +116,11 @@ export default function TaskCard({ task }: TaskCardProps) {
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleEditTime}
-              className="h-7 w-7 rounded-full flex-shrink-0"
-              title="Edit Task Details"
-            >
-              <Calendar className="h-4 w-4 text-black" />
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="icon"
               onClick={(e) => handleComplete(e)}
-              className="h-7 w-7 rounded-full flex-shrink-0"
+              className="h-6 w-6 rounded-full flex-shrink-0"
               title="Mark complete"
             >
-              <CheckCircle className="h-4 w-4 text-black" />
+              <CheckCircle className="h-3.5 w-3.5 text-black" />
             </Button>
           </div>
 

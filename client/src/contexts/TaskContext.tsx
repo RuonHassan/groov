@@ -36,7 +36,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true });
 
       if (error) {
         console.error("Supabase error fetching tasks:", error);

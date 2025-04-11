@@ -171,7 +171,7 @@ export default function Calendar({ tasks }: CalendarProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-2 border-b">
+      <div className="flex items-center justify-between p-2 border-b-2 border-b-gray-800">
         <span className="font-semibold text-xl">
           {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
         </span>

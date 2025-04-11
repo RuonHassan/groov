@@ -7,10 +7,10 @@ export default function Dashboard() {
   const { scheduledTaskId } = useTaskContext();
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
+    <div className="flex flex-col h-screen bg-white md:bg-gray-100">
       <div className="flex-1 grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-4 p-4 h-[calc(100vh-4rem)] overflow-hidden">
         {/* Tasks Section - Always Visible */}
-        <div className="overflow-y-auto no-scrollbar bg-white rounded-lg shadow">
+        <div className="overflow-y-auto no-scrollbar bg-white md:rounded-lg md:shadow">
           <TaskGrid />
         </div>
 
