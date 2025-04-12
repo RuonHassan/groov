@@ -21,10 +21,10 @@ const findNextAvailableSlot = (date: Date, existingTasks: Task[]): Date | null =
 
     // Check against existing tasks
     for (const task of existingTasks) {
-      if (!task.startTime || !task.endTime) continue; // Skip tasks without times
+      if (!task.start_time || !task.end_time) continue; // Skip tasks without times
       try {
-        const taskStart = parseISO(task.startTime);
-        const taskEnd = parseISO(task.endTime);
+        const taskStart = parseISO(task.start_time);
+        const taskEnd = parseISO(task.end_time);
         if (!isValid(taskStart) || !isValid(taskEnd)) continue;
 
         // Check for overlap: (TaskStart < SlotEnd) and (TaskEnd > SlotStart)
@@ -142,15 +142,11 @@ export default function TaskGrid() {
     // Special styling for completed section
     const isCompletedSection = section === "completed";
     const isTodaySection = section === "today";
-    const sectionHeaderClasses = `font-semibold ${
+    const sectionHeaderClasses = `font-semibold relative ${
       isCompletedSection 
         ? 'text-gray-500 text-sm py-1' 
         : 'text-gray-900 text-xl pb-1 pt-3'
-    } pl-2 pr-4 ${
-      isCompletedSection 
-        ? 'border-t border-b border-gray-200' 
-        : `${isTodaySection ? 'md:border-t' : 'border-t'} border-t-gray-200 border-b-2 border-b-gray-800`
-    } flex items-end justify-between cursor-${isCompletedSection ? 'pointer' : 'default'}`;
+    } pl-2 pr-4 flex items-end justify-between cursor-${isCompletedSection ? 'pointer' : 'default'}`;
 
     // Define the Quick Add UI elements directly (Button or Input)
     const quickAddUI = canQuickAdd ? (
@@ -184,13 +180,28 @@ export default function TaskGrid() {
       <div>
         <div 
           className={sectionHeaderClasses}
-          onClick={() => isCompletedSection && setShowCompleted(!showCompleted)}
+          onClick={isCompletedSection ? () => setShowCompleted(prev => !prev) : undefined}
         >
           <h2>{title}</h2>
           {isCompletedSection && (
             <span className="text-xs font-normal">
               {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
             </span>
+          )}
+          {/* Hand-drawn border effect */}
+          {!isCompletedSection && (
+            <>
+              {/* Bottom border only */}
+              <div className="absolute bottom-0 left-0 right-0">
+                <div className="mx-1 h-[2.5px] bg-gray-800 rounded-full" />
+              </div>
+            </>
+          )}
+          {/* Completed section borders */}
+          {isCompletedSection && (
+            <>
+              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gray-200" />
+            </>
           )}
         </div>
         
@@ -203,15 +214,12 @@ export default function TaskGrid() {
                 ))}
               </div>
             )}
+            {/* Empty container for spacing when no tasks */}
+            {tasks.length === 0 && !isCompletedSection && (
+              <div className="h-2" />
+            )}
             {/* Render Quick Add UI (Button/Input with its own padding/border div) */}
             {quickAddUI}
-
-            {/* Handle empty state message specifically for Future/Someday */}
-            {tasks.length === 0 && !canQuickAdd && !isCompletedSection && (
-              <div className="px-4 py-2 border-b border-gray-100 text-sm text-gray-400 italic">
-                No tasks {title === 'Someday' ? 'yet' : `for ${title.toLowerCase()}`}
-              </div>
-            )}
           </>
         )}
       </div>
@@ -223,13 +231,18 @@ export default function TaskGrid() {
   }
 
   return (
-    <div className="w-full">
-      {renderSection("Today", organizedTasks.today, "today", true)}
-      {renderSection("Tomorrow", organizedTasks.tomorrow, "tomorrow", true)}
-      {renderSection("Future", organizedTasks.future, "future", true)}
-      {renderSection("Someday", organizedTasks.someday, "someday", true)}
-      {renderSection(`Completed`, organizedTasks.completed, "completed", true)}
-      <NewTaskCard />
+    <div className="w-full flex flex-col h-full relative">
+      <div className="flex-1 overflow-y-auto pb-16">
+        {renderSection("Today", organizedTasks.today, "today", true)}
+        {renderSection("Tomorrow", organizedTasks.tomorrow, "tomorrow", true)}
+        {renderSection("Future", organizedTasks.future, "future", true)}
+        <div className="h-8" />
+        {renderSection("Someday", organizedTasks.someday, "someday", true)}
+        <NewTaskCard />
+      </div>
+      <div className="sticky bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-sm z-10">
+        {renderSection(`Completed`, organizedTasks.completed, "completed", true)}
+      </div>
     </div>
   );
 }

@@ -5,7 +5,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
-  Timer,
   User,
   LogOut,
   Settings
@@ -34,7 +33,6 @@ import GoogleCalendarButton from "./GoogleCalendarButton";
 export default function Header() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isOnCalendar] = useRoute("/calendar");
-  const [isOnPomodoro] = useRoute("/pomodoro");
   const { currentDate, goToPreviousWeek, goToNextWeek } = useWeek();
   const { user, signOut } = useAuth();
 
@@ -63,7 +61,7 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-white border-b-2 border-b-gray-800">
+    <header className="bg-white border-b-5 border-b-gray-800">
       <div className="w-full mx-auto px-4">
         <div className="flex justify-between items-center h-14">
           {/* Left side - Navigation links */}
@@ -76,18 +74,18 @@ export default function Header() {
                   size="icon"
                   className="rounded-full"
                 >
-                  <User className="h-5 w-5" />
+                  <User className="h-5 w-5" strokeWidth={3} />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="flex items-center cursor-pointer">
-                  <User className="mr-2 h-4 w-4" />
+                  <User className="mr-2 h-4 w-4" strokeWidth={2.5} />
                   <span>Profile</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem className="flex items-center cursor-pointer">
-                  <Settings className="mr-2 h-4 w-4" />
+                  <Settings className="mr-2 h-4 w-4" strokeWidth={2.5} />
                   <span>Settings</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -99,13 +97,13 @@ export default function Header() {
                   className="flex items-center text-red-600 cursor-pointer"
                   onClick={handleSignOut}
                 >
-                  <LogOut className="mr-2 h-4 w-4" />
+                  <LogOut className="mr-2 h-4 w-4" strokeWidth={2.5} />
                   <span>Sign out</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             
-            {/* Calendar/Pomodoro Buttons */}
+            {/* Calendar Button */}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -116,32 +114,12 @@ export default function Header() {
                     className={`rounded-full ${isOnCalendar ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
                   >
                     <Link to={isOnCalendar ? "/app" : "/calendar"}>
-                      <Calendar className="h-5 w-5" />
+                      <Calendar className="h-5 w-5" strokeWidth={3} />
                     </Link>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
                   {isOnCalendar ? 'View Tasks' : 'View Calendar'}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost"
-                    size="icon"
-                    asChild
-                    className={`rounded-full ${isOnPomodoro ? 'bg-green-100 text-green-700' : 'text-gray-700 hover:bg-gray-100'}`}
-                  >
-                    <Link to={isOnPomodoro ? "/app" : "/pomodoro"}>
-                      <Timer className="h-5 w-5" />
-                    </Link>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {isOnPomodoro ? 'View Tasks' : 'Pomodoro Timer'}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -153,7 +131,7 @@ export default function Header() {
               <img 
                 src="/groov.png" 
                 alt="Groov Logo" 
-                className="h-8 w-auto cursor-pointer"
+                className="h-10 w-auto cursor-pointer"
               />
             </Link>
           </div>
@@ -168,7 +146,7 @@ export default function Header() {
                 onClick={goToPreviousWeek}
                 className="h-8 w-8 rounded-full flex-shrink-0"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4" strokeWidth={2.5} />
               </Button>
 
               <Badge 
@@ -184,7 +162,7 @@ export default function Header() {
                 onClick={goToNextWeek}
                 className="h-8 w-8 rounded-full flex-shrink-0"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
               </Button>
             </div>
           </div>

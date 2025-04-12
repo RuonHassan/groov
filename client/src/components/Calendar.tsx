@@ -24,10 +24,10 @@ interface GoogleEvent {
   colorId?: string;
 }
 
-// Generate time slots from 8 AM to 8 PM
+// Generate time slots from 8 AM to 6 PM
 function generateTimeSlots(): TimeSlot[] {
   const slots: TimeSlot[] = [];
-  for (let hour = 8; hour <= 20; hour++) {
+  for (let hour = 8; hour <= 18; hour++) {
     slots.push({
       hour,
       minute: 0,
@@ -41,10 +41,12 @@ const timeSlots = generateTimeSlots();
 
 // Props: Only needs tasks now
 interface CalendarProps {
-  tasks: Task[]; 
+  tasks: Task[];
+  onRefetch?: () => void;
+  scheduledTaskId?: number | null;
 }
 
-export default function Calendar({ tasks }: CalendarProps) {
+export default function Calendar({ tasks, onRefetch, scheduledTaskId }: CalendarProps) {
   const { currentDate } = useWeek();
   const { toast } = useToast();
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -148,17 +150,10 @@ export default function Calendar({ tasks }: CalendarProps) {
     setShowTaskModal(true); // Open the AddTaskModal
   };
 
-  // Get color based on task status (similar logic as before)
+  // Get color based on task's color property rather than status
   const getTaskColor = (task: Task): string => {
-    // Use task status to determine color
-    switch(task.status) {
-      case 'next': return '#3b82f6'; // blue
-      case 'waiting': return '#f59e0b'; // amber
-      case 'project': return '#8b5cf6'; // purple
-      case 'someday': return '#6b7280'; // gray
-      case 'completed': return '#10b981'; // green (for completed tasks if shown)
-      default: return '#3b82f6'; // Default blue for inbox etc.
-    }
+    // Use task color directly or default to blue
+    return task.color || '#3b82f6';
   };
 
   // Helper function to check if a color is light
@@ -170,15 +165,18 @@ export default function Calendar({ tasks }: CalendarProps) {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-2 border-b-2 border-b-gray-800">
+    <div className="flex flex-col">
+      <div className="flex items-center justify-between p-2 relative">
         <span className="font-semibold text-xl">
           {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
         </span>
+        <div className="absolute bottom-0 left-0 right-0">
+          <div className="mx-1 h-[2.5px] bg-gray-800 rounded-full" />
+        </div>
       </div>
       
-      <div className="flex-1 overflow-auto border-t border-gray-200">
-        <div className="grid grid-cols-[auto_repeat(5,minmax(0,1fr))] md:grid-cols-[auto_repeat(7,minmax(100px,1fr))] md:min-w-[800px]">
+      <div className="border-t border-gray-200">
+        <div className="grid grid-cols-[auto_repeat(5,minmax(0,1fr))] md:grid-cols-[auto_repeat(7,minmax(100px,1fr))] min-w-[800px]">
           <div className="sticky top-0 z-20 bg-white border-r border-b border-gray-200 p-2 text-xs font-medium text-gray-500 text-center">Time</div>
           {desktopWeekDays.map(day => {
             const dayOfWeek = getDay(day);

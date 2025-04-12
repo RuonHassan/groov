@@ -58,13 +58,15 @@ export default function CalendarPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white text-gray-800">
-      <main className="flex-1 overflow-hidden">
-        <CalendarComponent 
-          key={key}
-          tasks={tasks}
-          onRefetch={handleRefetch}
-          scheduledTaskId={scheduledTaskId}
-        />
+      <main className="flex-1 flex flex-col">
+        <div className="flex-shrink-0">
+          <CalendarComponent 
+            key={key}
+            tasks={tasks}
+            onRefetch={handleRefetch}
+            scheduledTaskId={scheduledTaskId}
+          />
+        </div>
       </main>
     </div>
   );

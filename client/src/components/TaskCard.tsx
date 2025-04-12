@@ -5,7 +5,7 @@ import AddTaskModal from "./AddTaskModal";
 import { Button } from "@/components/ui/button";
 import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, Trash2 } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 
 interface TaskCardProps {
   task: Task;
@@ -84,18 +84,14 @@ export default function TaskCard({ task }: TaskCardProps) {
           className="absolute inset-y-0 left-0 w-full bg-red-500 flex items-center justify-start px-6"
           style={{ opacity: deleteOpacity, pointerEvents: 'none' }}
         >
-          <motion.div style={{ scale: deleteScale }}>
-            <Trash2 className="h-5 w-5 text-black" />
-          </motion.div>
+          {/* Icon removed */}
         </motion.div>
         
         <motion.div
           className="absolute inset-y-0 right-0 w-full bg-green-500 flex items-center justify-end px-6"
           style={{ opacity: completeOpacity, pointerEvents: 'none' }}
         >
-          <motion.div style={{ scale: completeScale }}>
-            <CheckCircle className="h-5 w-5 text-black" />
-          </motion.div>
+          {/* Icon removed */}
         </motion.div>
         
         <motion.div
@@ -104,15 +100,15 @@ export default function TaskCard({ task }: TaskCardProps) {
           dragConstraints={{ left: 0, right: 0 }}
           dragElastic={0.2}
           onDragEnd={handleDragEnd}
-          className="relative flex items-center justify-between w-full py-1 px-4 bg-white border-b border-gray-100 cursor-pointer hover:bg-gray-50 z-10"
+          className="relative flex items-center justify-between w-full py-1 px-2 bg-white border-b border-gray-100 cursor-pointer hover:bg-gray-50 z-10"
           onClick={handleCardClick}
           whileTap={{ scale: 0.99, cursor: "grabbing" }}
         >
-          <h3 className="text-sm text-gray-900 truncate flex-1 mr-2 select-none">
+          <h3 className="text-sm text-gray-900 truncate flex-1 select-none">
             {task.title}
           </h3>
           
-          <div className="flex items-center gap-1 ml-2">
+          <div className="flex items-center ml-auto">
             <Button
               variant="ghost"
               size="icon"

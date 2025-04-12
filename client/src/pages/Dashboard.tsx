@@ -3,23 +3,20 @@ import TaskGrid from "@/components/TaskGrid";
 import CalendarComponent from "@/components/Calendar";
 
 export default function Dashboard() {
-  const { isLoading, tasks, refetchTasks } = useTaskContext();
-  const { scheduledTaskId } = useTaskContext();
+  const { isLoading, tasks } = useTaskContext();
 
   return (
-    <div className="flex flex-col h-screen bg-white md:bg-gray-100">
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-4 p-4 h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="flex flex-col min-h-screen bg-white md:bg-gray-100">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-4 p-4">
         {/* Tasks Section - Always Visible */}
-        <div className="overflow-y-auto no-scrollbar bg-white md:rounded-lg md:shadow">
+        <div className="overflow-y-auto bg-white md:rounded-lg md:shadow">
           <TaskGrid />
         </div>
 
         {/* Calendar Section - Hidden on Mobile */}
-        <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
+        <div className="hidden md:block bg-white rounded-lg shadow overflow-y-auto">
           <CalendarComponent 
             tasks={tasks}
-            onRefetch={refetchTasks}
-            scheduledTaskId={scheduledTaskId}
           />
         </div>
       </div>
