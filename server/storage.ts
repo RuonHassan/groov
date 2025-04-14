@@ -4,8 +4,37 @@ import {
   users, type User, type InsertUser,
   pomodoroSessions, type PomodoroSession, type InsertPomodoroSession,
   forestTrees, type ForestTree, type InsertForestTree,
-  taskSchema, calendarEventSchema, pomodoroSessionSchema, forestTreeSchema, userSchema
+  taskSchema, calendarEventSchema, pomodoroSessionSchema, forestTreeSchema, userSchema,
+  // Add imports for connected calendar types from shared schema
+  type ConnectedCalendar, type InsertConnectedCalendar 
 } from "@shared/schema";
+
+// Define a type for the connected calendar data (mirroring Supabase schema)
+// REMOVED - Now imported from @shared/schema
+/*
+export type ConnectedCalendar = {
+  id: number;
+  user_id: number; // Assuming user ID is numeric for now
+  provider: 'google' | 'outlook' | string; // Extend as needed
+  calendar_id: string; // The ID from the provider (e.g., Google Calendar ID)
+  calendar_name: string;
+  access_token: string;
+  refresh_token: string | null;
+  token_expires_at: string | null; // ISO timestamp string
+  is_primary: boolean;
+  is_enabled: boolean;
+  created_at: string; // ISO timestamp string
+  last_synced_at: string | null; // ISO timestamp string
+};
+*/
+
+// Define input type for saving connection
+// REMOVED - Now imported from @shared/schema
+/*
+export type InsertConnectedCalendar = Omit<ConnectedCalendar, 'id' | 'created_at' | 'user_id'> & {
+  user_id: number; // Ensure user_id is present on insert
+};
+*/
 
 // Modify the interface with all CRUD methods needed for the GTD app
 export interface IStorage {
@@ -44,6 +73,11 @@ export interface IStorage {
   createForestTree(tree: InsertForestTree): Promise<ForestTree>;
   updateForestTree(id: number, tree: Partial<InsertForestTree>): Promise<ForestTree | undefined>;
   deleteForestTree(id: number): Promise<boolean>;
+
+  // Connected Calendar methods
+  getConnectedCalendars(userId: number): Promise<ConnectedCalendar[]>;
+  saveGoogleCalendarConnection(data: InsertConnectedCalendar): Promise<ConnectedCalendar>;
+  // Add methods for delete, update if needed later
 }
 
 export class MemStorage implements IStorage {
@@ -52,11 +86,13 @@ export class MemStorage implements IStorage {
   private calendarEvents: Map<number, CalendarEvent>;
   private pomodoroSessions: Map<number, PomodoroSession>;
   private forestTrees: Map<number, ForestTree>;
+  private connectedCalendars: Map<number, ConnectedCalendar>; // Add map for connected calendars
   private userCurrentId: number;
   private taskCurrentId: number;
   private calendarEventCurrentId: number;
   private pomodoroSessionCurrentId: number;
   private forestTreeCurrentId: number;
+  private connectedCalendarCurrentId: number; // Add ID counter
 
   constructor() {
     this.users = new Map();
@@ -64,11 +100,13 @@ export class MemStorage implements IStorage {
     this.calendarEvents = new Map();
     this.pomodoroSessions = new Map();
     this.forestTrees = new Map();
+    this.connectedCalendars = new Map(); // Initialize map
     this.userCurrentId = 1;
     this.taskCurrentId = 1;
     this.calendarEventCurrentId = 1;
     this.pomodoroSessionCurrentId = 1;
     this.forestTreeCurrentId = 1;
+    this.connectedCalendarCurrentId = 1; // Initialize ID counter
 
     // Add example tasks
     // Call the async setup function
@@ -653,20 +691,59 @@ export class MemStorage implements IStorage {
   }
   
   async deleteForestTree(id: number): Promise<boolean> {
-    const tree = this.forestTrees.get(id);
-    
-    if (tree) {
-      // Update user's total trees count
-      const user = this.users.get(tree.userId);
-      if (user && user.totalTrees > 0) {
-        this.updateUser(tree.userId, { 
-          totalTrees: user.totalTrees - 1 
-        });
+    const deleted = this.forestTrees.delete(id);
+    return deleted;
+  }
+
+  // --- Connected Calendar Methods (MemStorage Implementation) ---
+
+  async getConnectedCalendars(userId: number): Promise<ConnectedCalendar[]> {
+    // In-memory filter by user ID
+    const userCalendars: ConnectedCalendar[] = [];
+    this.connectedCalendars.forEach(cal => {
+      if (cal.user_id === userId) {
+        userCalendars.push(cal);
       }
-    }
+    });
+    return userCalendars;
+  }
+
+  async saveGoogleCalendarConnection(data: InsertConnectedCalendar): Promise<ConnectedCalendar> {
+    // In-memory: Check if a Google connection already exists for this user
+    let existingEntry: ConnectedCalendar | undefined;
+    this.connectedCalendars.forEach(cal => {
+      if (cal.user_id === data.user_id && cal.provider === 'google') {
+        existingEntry = cal;
+      }
+    });
+
+    const now = new Date().toISOString();
     
-    return this.forestTrees.delete(id);
+    if (existingEntry) {
+      // Update existing entry (Upsert logic)
+      const updatedEntry: ConnectedCalendar = {
+        ...existingEntry,
+        ...data, // Overwrite with new data
+        token_expires_at: data.token_expires_at, // Ensure expiry is updated
+        last_synced_at: now, // Update sync time
+      };
+      this.connectedCalendars.set(existingEntry.id, updatedEntry);
+      return updatedEntry;
+    } else {
+      // Insert new entry
+      const newId = this.connectedCalendarCurrentId++;
+      const newEntry: ConnectedCalendar = {
+        ...data,
+        id: newId,
+        created_at: now,
+        last_synced_at: now,
+      };
+      this.connectedCalendars.set(newId, newEntry);
+      return newEntry;
+    }
   }
 }
 
-export const storage = new MemStorage();
+// Export a single storage instance (currently MemStorage)
+// This will need to be changed when Supabase storage is implemented
+export const storage: IStorage = new MemStorage();

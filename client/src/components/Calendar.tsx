@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useWeek } from "@/contexts/WeekContext";
 import { supabase } from "@/lib/supabaseClient";
 import AddTaskModal from './AddTaskModal';
+import GoogleEventModal from './GoogleEventModal';
 import { useGoogleCalendar } from '@/contexts/GoogleCalendarContext';
 
 // Time slot definition
@@ -50,6 +51,8 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   const { currentDate } = useWeek();
   const { toast } = useToast();
   const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<GoogleEvent | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [defaultTaskTimes, setDefaultTaskTimes] = useState<{ start_time: string | null; end_time: string | null }>({ start_time: null, end_time: null });
   const { isConnected, calendars, fetchEvents } = useGoogleCalendar();
@@ -60,18 +63,28 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
 
   // Fetch Google Calendar events when the week changes
   useEffect(() => {
+    // Create a stable reference to weekStart and weekEnd
+    const startDate = weekStart;
+    const endDate = weekEnd;
+
     const fetchGoogleEvents = async () => {
-      if (!isConnected || calendars.length === 0) return;
+      if (!isConnected || calendars.length === 0) {
+        console.log('Not fetching events: isConnected =', isConnected, 'calendars =', calendars);
+        return;
+      }
 
       try {
+        console.log('Fetching events for calendars:', calendars);
         const allEvents = await Promise.all(
-          calendars.map(calendar => 
-            fetchEvents(calendar.id, weekStart, weekEnd)
-          )
+          calendars.map(calendar => {
+            console.log('Fetching events for calendar:', calendar);
+            return fetchEvents(calendar.calendar_id, startDate, endDate);
+          })
         );
 
         // Flatten and deduplicate events
         const events = Array.from(new Set(allEvents.flat()));
+        console.log('Fetched events:', events);
         setGoogleEvents(events);
       } catch (error) {
         console.error('Error fetching Google Calendar events:', error);
@@ -84,14 +97,13 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
     };
 
     fetchGoogleEvents();
-  }, [isConnected, calendars, weekStart, weekEnd, fetchEvents]);
+  }, [isConnected, calendars, currentDate]); // Only depend on isConnected, calendars, and currentDate
 
   const allWeekDays = Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
   const weekDays = allWeekDays.filter(day => {
       const dayOfWeek = getDay(day);
       return dayOfWeek !== 0 && dayOfWeek !== 6; // Exclude Sunday (0) and Saturday (6)
   });
-  const desktopWeekDays = allWeekDays;
 
   const formatWeekdayHeader = (date: Date) => format(date, 'EEE');
   const formatDateHeader = (date: Date) => format(date, 'd');
@@ -164,6 +176,12 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
     return luma > 128;
   };
 
+  // Handle click on a Google Calendar event
+  const handleGoogleEventClick = (event: GoogleEvent) => {
+    setSelectedEvent(event);
+    setShowEventModal(true);
+  };
+
   return (
     <div className="flex flex-col">
       <div className="flex items-center justify-between p-2 relative">
@@ -176,40 +194,34 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
       </div>
       
       <div className="border-t border-gray-200">
-        <div className="grid grid-cols-[auto_repeat(5,minmax(0,1fr))] md:grid-cols-[auto_repeat(7,minmax(100px,1fr))] min-w-[800px]">
+        <div className="grid grid-cols-[auto_repeat(5,minmax(0,1fr))] min-w-[800px]">
           <div className="sticky top-0 z-20 bg-white border-r border-b border-gray-200 p-2 text-xs font-medium text-gray-500 text-center">Time</div>
-          {desktopWeekDays.map(day => {
-            const dayOfWeek = getDay(day);
-            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-            return (
-                <div 
-                    key={day.toISOString()} 
-                    className={`sticky top-0 z-20 bg-white border-b border-gray-200 p-2 text-center ${isWeekend ? 'hidden md:block' : ''}`}>
-                  <div className="text-xs font-medium text-gray-500">{formatWeekdayHeader(day)}</div>
-                  <div className={`text-lg font-semibold ${isSameDay(day, new Date()) ? 'text-blue-600' : 'text-gray-900'}`}>
-                    {formatDateHeader(day)}
-                  </div>
+          {weekDays.map(day => (
+              <div 
+                  key={day.toISOString()} 
+                  className="sticky top-0 z-20 bg-white border-b border-gray-200 p-2 text-center">
+                <div className="text-xs font-medium text-gray-500">{formatWeekdayHeader(day)}</div>
+                <div className={`text-lg font-semibold ${isSameDay(day, new Date()) ? 'text-blue-600' : 'text-gray-900'}`}>
+                  {formatDateHeader(day)}
                 </div>
-            );
-          })}
+              </div>
+          ))}
 
           {timeSlots.map(slot => (
             <React.Fragment key={slot.formatted}>
               <div className="row-span-1 border-r border-gray-200 p-2 text-xs text-right text-gray-500 h-16 flex items-center justify-end"> 
                 <span>{slot.formatted}</span>
               </div>
-              {desktopWeekDays.map(day => {
-                const dayOfWeek = getDay(day);
-                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+              {weekDays.map(day => {
                 const itemsInSlot = getItemsForTimeSlot(day, slot);
                 
                 return (
                   <div
                     key={day.toISOString() + slot.formatted}
-                    className={`border-b border-r border-gray-100 h-16 relative cursor-pointer hover:bg-blue-50 transition-colors ${isWeekend ? 'hidden md:block' : ''}`}
+                    className="border-b border-r border-gray-100 h-16 relative cursor-pointer hover:bg-blue-50 transition-colors"
                     onClick={() => handleTimeSlotClick(day, slot)}
                   >
-                    {itemsInSlot.map(item => {
+                    {itemsInSlot.map((item, index, array) => {
                       const isGoogleEvent = 'summary' in item;
                       const title = isGoogleEvent ? item.summary : item.title;
                       const start = isGoogleEvent ? item.start.dateTime : item.start_time!;
@@ -219,11 +231,17 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                       const isCompleted = !isGoogleEvent && !!item.completed_at;
 
                       const startMinute = getMinutes(startDate);
+                      const startHour = getHours(startDate);
                       const durationInMinutes = (endDate.getTime() - startDate.getTime()) / (1000 * 60);
                       const topPercent = (startMinute / 60) * 100;
                       const heightPercent = (durationInMinutes / 60) * 100;
 
-                      let taskClasses = "absolute left-1 right-1 rounded p-1 text-xs overflow-hidden z-10 shadow-sm transition-colors duration-150 ease-in-out";
+                      // Only show the event if this is the starting hour
+                      if (startHour !== slot.hour) {
+                        return null;
+                      }
+
+                      let taskClasses = "absolute rounded p-1 text-xs overflow-hidden z-10 shadow-sm transition-colors duration-150 ease-in-out";
 
                       if (isCompleted) {
                         taskClasses += " bg-gray-200 text-gray-500 border border-gray-300 cursor-default";
@@ -233,6 +251,10 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                         taskClasses += ` ${textColor} hover:opacity-90 ${isGoogleEvent ? 'cursor-default' : 'cursor-pointer'}`;
                       }
 
+                      // Calculate width and left position based on number of events
+                      const width = 100 / array.length;
+                      const left = (index * width);
+
                       return (
                         <div
                           key={isGoogleEvent ? item.id : item.id.toString()}
@@ -241,10 +263,15 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                             top: `${topPercent}%`,
                             height: `${Math.max(heightPercent, 5)}%`,
                             backgroundColor: isCompleted ? undefined : (isGoogleEvent ? '#7D2A4D' : item.color || '#3b82f6'),
+                            width: `calc(${width}% - 4px)`,
+                            left: `${left}%`,
+                            right: 'auto'
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (!isGoogleEvent && !isCompleted) {
+                            if (isGoogleEvent) {
+                              handleGoogleEventClick(item as GoogleEvent);
+                            } else if (!isCompleted) {
                               handleTaskClick(item as Task);
                             }
                           }}
@@ -274,6 +301,15 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
         isEditing={!!editingTask}
         defaultStartTime={editingTask ? undefined : defaultTaskTimes.start_time}
         defaultEndTime={editingTask ? undefined : defaultTaskTimes.end_time}
+      />
+
+      <GoogleEventModal
+        open={showEventModal}
+        onClose={() => {
+          setShowEventModal(false);
+          setSelectedEvent(null);
+        }}
+        event={selectedEvent}
       />
     </div>
   );

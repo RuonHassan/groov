@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { InsertTask, Task } from "@shared/schema";
 import { useTaskContext } from "@/contexts/TaskContext";
-import { X, Calendar, Clock, Palette } from "lucide-react";
+import { X, Calendar, Clock, Palette, Trash2 } from "lucide-react";
 import { formatISO, parseISO, isValid } from 'date-fns';
 
 // Function to format Date object or ISO string into yyyy-MM-ddTHH:mm for datetime-local input
@@ -82,7 +82,7 @@ interface AddTaskModalProps {
 }
 
 export default function AddTaskModal({ open, onClose, task, isEditing = false, defaultStartTime, defaultEndTime }: AddTaskModalProps) {
-  const { addTask, updateTask } = useTaskContext();
+  const { addTask, updateTask, deleteTask } = useTaskContext();
   
   // Form with simplified schema and defaults
   const form = useForm<TaskFormValues>({
@@ -160,6 +160,17 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
     }
   };
 
+  const handleDelete = async () => {
+    if (task) {
+      try {
+        await deleteTask(task.id);
+        onClose();
+      } catch (error) {
+        console.error("Error deleting task:", error);
+      }
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md rounded-lg pt-6">
@@ -201,10 +212,22 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
                 </FormItem>
             )} />
             
-            <DialogFooter className="pt-4">
+            <DialogFooter className="pt-4 flex justify-between items-center">
+              {isEditing && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleDelete}
+                  className="mr-auto"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Delete
+                </Button>
+              )}
               <Button type="submit">
-                 {isEditing ? "Save Changes" : "Create Task"}
-               </Button>
+                {isEditing ? "Save Changes" : "Create Task"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

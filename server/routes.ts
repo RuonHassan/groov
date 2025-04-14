@@ -8,7 +8,8 @@ import {
   insertForestTreeSchema,
   type InsertCalendarEvent,
   type InsertPomodoroSession,
-  type InsertForestTree 
+  type InsertForestTree,
+  type InsertConnectedCalendar
 } from "@shared/schema";
 import { ZodError } from "zod";
 
@@ -653,6 +654,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(userWithoutPassword);
     } catch (error) {
       res.status(500).json({ message: "Error retrieving user" });
+    }
+  });
+
+  // --- Connected Calendar Routes ---
+
+  // Get all connected calendars for the current user
+  // TODO: Add authentication middleware to get req.user.id
+  app.get("/api/connected-calendars", async (req, res) => {
+    // Placeholder for user ID - replace with actual auth logic
+    const userId = (req.user as any)?.id || 1; // Assuming req.user.id is available
+    
+    if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    try {
+      const calendars = await storage.getConnectedCalendars(userId);
+      res.json(calendars);
+    } catch (error) {
+      console.error("Error retrieving connected calendars:", error);
+      res.status(500).json({ message: "Error retrieving connected calendars" });
+    }
+  });
+
+  // Connect Google Calendar - receives token data from client
+  // TODO: Add authentication middleware to get req.user.id
+  app.post("/api/connected-calendars/google", async (req, res) => {
+    // Placeholder for user ID - replace with actual auth logic
+    const userId = (req.user as any)?.id || 1; // Assuming req.user.id is available
+    
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    try {
+      const { 
+          accessToken, 
+          refreshToken, // May be null depending on Google's flow
+          expiresIn, // Typically in seconds
+          calendarId, // e.g., the primary calendar ID fetched client-side
+          calendarName // e.g., the primary calendar summary
+       } = req.body;
+
+      if (!accessToken || !expiresIn || !calendarId || !calendarName) {
+        return res.status(400).json({ message: "Missing required token or calendar information" });
+      }
+
+      // Calculate expiry timestamp
+      const now = Date.now();
+      const expiresAt = new Date(now + expiresIn * 1000).toISOString();
+
+      const connectionData: InsertConnectedCalendar = {
+        user_id: userId,
+        provider: 'google',
+        calendar_id: calendarId,
+        calendar_name: calendarName,
+        access_token: accessToken,
+        refresh_token: refreshToken || null,
+        token_expires_at: expiresAt,
+        is_primary: true, // Assuming the first connection is primary
+        is_enabled: true,
+      };
+
+      const savedConnection = await storage.saveGoogleCalendarConnection(connectionData);
+      res.status(201).json(savedConnection);
+
+    } catch (error) {
+      console.error("Error saving Google Calendar connection:", error);
+      if (error instanceof ZodError) {
+          return res.status(400).json({ message: "Invalid data format", errors: error.errors });
+      }
+      res.status(500).json({ message: "Error saving Google Calendar connection" });
     }
   });
 

@@ -1,8 +1,17 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { CalendarClock, Check } from "lucide-react";
+import { CalendarClock, Check, MoreVertical, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useGoogleCalendar } from '@/contexts/GoogleCalendarContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabaseClient';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 declare global {
   interface Window {
@@ -15,7 +24,9 @@ export default function GoogleCalendarButton() {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const { toast } = useToast();
-  const { setIsConnected, setCalendars, isConnected, calendars } = useGoogleCalendar();
+  const { isConnected, calendars } = useGoogleCalendar();
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
   const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
   const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
@@ -88,12 +99,92 @@ export default function GoogleCalendarButton() {
     setTimeout(initializeGapi, 100);
   }, []);
 
+  const handleTokenResponse = async (response: any) => {
+    if (response.error) {
+      console.error('OAuth error:', response);
+      toast({
+        title: "Authentication Error",
+        description: response.error || "Could not authenticate with Google Calendar",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      console.log('Google Auth successful, fetching primary calendar info...');
+      const accessToken = response.access_token;
+      const expiresIn = response.expires_in;
+      const refreshToken = response.refresh_token || null;
+
+      // Set token temporarily to fetch calendar info
+      window.gapi.client.setToken({ access_token: accessToken });
+
+      const calendarList = await window.gapi.client.calendar.calendarList.list({ maxResults: 10 });
+      const primaryCalendar = calendarList.result.items.find((cal: any) => cal.primary);
+      
+      if (!primaryCalendar) {
+          toast({ title: "Error", description: "Could not find primary Google Calendar.", variant: "destructive" });
+          setIsLoading(false);
+          return;
+      }
+
+      console.log('Saving calendar connection to Supabase...');
+
+      // Calculate expiry timestamp
+      const now = Date.now();
+      const expiresAt = new Date(now + expiresIn * 1000).toISOString();
+
+      // Insert/Update the calendar connection in Supabase
+      const { data: savedConnection, error: supabaseError } = await supabase
+        .from('connected_calendars')
+        .upsert({
+          user_id: session?.user?.id, // Supabase user ID
+          provider: 'google',
+          calendar_id: primaryCalendar.id,
+          calendar_name: primaryCalendar.summary,
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          token_expires_at: expiresAt,
+          is_primary: true,
+          is_enabled: true,
+        }, {
+          onConflict: 'user_id,provider'
+        });
+
+      if (supabaseError) {
+        throw new Error(supabaseError.message);
+      }
+
+      // Invalidate the React Query cache to refetch calendar data
+      await queryClient.invalidateQueries({ queryKey: ['connectedCalendars'] });
+
+      toast({
+        title: "Calendar Connected",
+        description: `Successfully connected ${primaryCalendar.summary}`,
+      });
+      
+    } catch (error: any) {
+      console.error('Error processing token or saving to Supabase:', error);
+      toast({
+        title: "Connection Error",
+        description: error.message || "Could not save Google Calendar connection",
+        variant: "destructive",
+      });
+    } finally {
+      // Clear the temporary token
+      window.gapi.client.setToken(null);
+      setIsLoading(false);
+    }
+  };
+
   const handleAuthClick = async () => {
     if (!isInitialized) {
-      toast({
-        title: "Please wait",
-        description: "Calendar API is still initializing...",
-      });
+      toast({ title: "Please wait", description: "Calendar API is still initializing..." });
+      return;
+    }
+    if (!session) {
+      toast({ title: "Not Logged In", description: "Please log in to connect your calendar.", variant: "destructive" });
       return;
     }
 
@@ -102,44 +193,7 @@ export default function GoogleCalendarButton() {
       const tokenClient = window.google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
-        callback: async (response: any) => {
-          if (response.error) {
-            console.error('OAuth error:', response);
-            toast({
-              title: "Authentication Error",
-              description: response.error.message || "Could not authenticate with Google Calendar",
-              variant: "destructive",
-            });
-            return;
-          }
-          
-          try {
-            console.log('Fetching calendar list...');
-            const calendarList = await window.gapi.client.calendar.calendarList.list();
-            
-            const calendars = calendarList.result.items.map((cal: any) => ({
-              id: cal.id,
-              summary: cal.summary,
-              description: cal.description,
-              timeZone: cal.timeZone,
-            }));
-            
-            setCalendars(calendars);
-            setIsConnected(true);
-            
-            toast({
-              title: "Calendars Connected",
-              description: `Successfully connected ${calendars.length} calendars`,
-            });
-          } catch (error: any) {
-            console.error('Error fetching calendars:', error);
-            toast({
-              title: "Connection Error",
-              description: error.result?.error?.message || "Could not fetch calendars",
-              variant: "destructive",
-            });
-          }
-        },
+        callback: handleTokenResponse,
       });
 
       tokenClient.requestAccessToken({ prompt: 'consent' });
@@ -155,22 +209,83 @@ export default function GoogleCalendarButton() {
     }
   };
 
+  const handleDeleteCalendar = async () => {
+    if (!session?.user?.id || calendars.length === 0) return;
+
+    try {
+      setIsLoading(true);
+      const calendar = calendars[0]; // Get the first calendar since we only support one for now
+
+      // Delete the calendar connection from Supabase
+      const { error: deleteError } = await supabase
+        .from('connected_calendars')
+        .delete()
+        .eq('id', calendar.id);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      // Clear Google API token
+      if (window.gapi?.client?.getToken()) {
+        window.gapi.client.setToken(null);
+      }
+
+      // Invalidate the React Query cache to refetch calendar data
+      await queryClient.invalidateQueries({ queryKey: ['connectedCalendars'] });
+
+      toast({
+        title: "Calendar Disconnected",
+        description: "Successfully disconnected Google Calendar",
+      });
+    } catch (error: any) {
+      console.error('Error deleting calendar connection:', error);
+      toast({
+        title: "Error",
+        description: "Could not disconnect calendar. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="w-full">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleAuthClick}
-        disabled={isLoading || !isInitialized}
-        className="flex items-center gap-2 w-full justify-start"
-      >
-        <CalendarClock className="h-4 w-4" />
-        <span>Add Calendar</span>
-      </Button>
-      {isConnected && (
-        <div className="flex items-center gap-1 px-3 py-1 text-xs text-green-600">
-          <Check className="h-3 w-3" />
-          <span>{calendars.length} Calendar{calendars.length !== 1 ? 's' : ''} Connected</span>
+      {!isConnected ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleAuthClick}
+          disabled={isLoading || !isInitialized}
+          className="flex items-center gap-2 w-full justify-start"
+        >
+          <CalendarClock className="h-4 w-4" />
+          <span>Add Calendar</span>
+        </Button>
+      ) : (
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-1 px-3 py-1 text-xs text-green-600">
+            <Check className="h-3 w-3" />
+            <span>Calendar Connected</span>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                className="text-red-600 focus:text-red-600 cursor-pointer"
+                onClick={handleDeleteCalendar}
+                disabled={isLoading}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Disconnect Calendar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )}
       {isLoading && (

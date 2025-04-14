@@ -89,9 +89,9 @@ export default function Header() {
                   <span>Settings</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <div className="p-2">
                   <GoogleCalendarButton />
-                </DropdownMenuItem>
+                </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   className="flex items-center text-red-600 cursor-pointer"

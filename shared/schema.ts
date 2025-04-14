@@ -77,3 +77,33 @@ export const userSchema = z.object({
   created_at: z.string().datetime({ offset: true }),
   updated_at: z.string().datetime({ offset: true }),
 });
+
+// === NEW: Connected Calendar Schema ===
+
+export const connectedCalendarSchema = z.object({
+  id: z.number().int(),
+  user_id: z.number().int(), // Or z.string().uuid() if using Supabase Auth IDs
+  provider: z.enum(['google', 'outlook']).or(z.string()), // Allow known providers or others
+  calendar_id: z.string(),
+  calendar_name: z.string(),
+  access_token: z.string(),
+  refresh_token: z.string().nullable(),
+  token_expires_at: z.string().datetime({ offset: true }).nullable(), // ISO 8601 format
+  is_primary: z.boolean(),
+  is_enabled: z.boolean(),
+  created_at: z.string().datetime({ offset: true }),
+  last_synced_at: z.string().datetime({ offset: true }).nullable(),
+});
+
+export const insertConnectedCalendarSchema = connectedCalendarSchema.omit({ 
+    id: true, 
+    created_at: true, 
+    last_synced_at: true 
+});
+
+export type ConnectedCalendar = z.infer<typeof connectedCalendarSchema>;
+export type InsertConnectedCalendar = z.infer<typeof insertConnectedCalendarSchema>;
+
+
+// Type Aggregation (Optional but can be useful)
+export type AllSchemaTypes = Task | CalendarEvent | User | PomodoroSession | ForestTree | ConnectedCalendar;
