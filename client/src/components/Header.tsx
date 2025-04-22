@@ -138,8 +138,8 @@ export default function Header() {
           
           {/* Right side - Week Navigation */}
           <div className="flex-1 flex justify-end items-center">
-            {/* Week Navigation - More compact on mobile */}
-            <div className="flex items-center">
+            {/* Week Navigation - Hidden on mobile, visible on md and up */}
+            <div className="hidden md:flex items-center">
               <Button 
                 variant="ghost"
                 size="icon"
