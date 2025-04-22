@@ -10,6 +10,11 @@ import AddTaskModal from './AddTaskModal';
 import GoogleEventModal from './GoogleEventModal';
 import { useGoogleCalendar } from '@/contexts/GoogleCalendarContext';
 
+// Current time indicator calculation constants
+const CALENDAR_START_HOUR = 8;
+const CALENDAR_END_HOUR = 19; // Extended to 7 PM to include the last slot
+const TOTAL_CALENDAR_MINUTES = (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 60;
+
 // Time slot definition
 interface TimeSlot {
   hour: number;
@@ -28,7 +33,7 @@ interface GoogleEvent {
 // Generate time slots from 8 AM to 6 PM
 function generateTimeSlots(): TimeSlot[] {
   const slots: TimeSlot[] = [];
-  for (let hour = 8; hour <= 18; hour++) {
+  for (let hour = CALENDAR_START_HOUR; hour < CALENDAR_END_HOUR; hour++) {
     // Add the hour slot (XX:00)
     slots.push({
       hour,
@@ -65,9 +70,19 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   const [defaultTaskTimes, setDefaultTaskTimes] = useState<{ start_time: string | null; end_time: string | null }>({ start_time: null, end_time: null });
   const { isConnected, calendars, fetchEvents } = useGoogleCalendar();
   const [googleEvents, setGoogleEvents] = useState<GoogleEvent[]>([]);
+  const [currentTime, setCurrentTime] = useState(new Date()); // State for current time
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); 
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
+
+  // Effect to update current time every minute
+  useEffect(() => {
+    const timerId = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every 60 seconds
+
+    return () => clearInterval(timerId); // Cleanup interval on unmount
+  }, []);
 
   // Fetch Google Calendar events when the week changes
   useEffect(() => {
@@ -133,6 +148,22 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
       console.error("Error parsing dates:", e);
       return false;
     }
+  };
+
+  // Calculate the vertical offset for the current time indicator
+  const calculateTopOffset = (now: Date): number => {
+    const currentHour = getHours(now);
+    const currentMinute = getMinutes(now);
+
+    // Ensure time is within calendar bounds
+    if (currentHour < CALENDAR_START_HOUR || currentHour >= CALENDAR_END_HOUR) {
+      return -1; // Indicate it's outside the displayed range
+    }
+
+    const minutesFromStart = (currentHour - CALENDAR_START_HOUR) * 60 + currentMinute;
+    const offsetPercent = (minutesFromStart / TOTAL_CALENDAR_MINUTES) * 100;
+    
+    return Math.max(0, Math.min(100, offsetPercent)); // Clamp between 0% and 100%
   };
 
   // Get tasks and events that start within a specific day and time slot
@@ -216,12 +247,33 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
           ))}
 
           {timeSlots.map(slot => (
-            <React.Fragment key={slot.formatted}>
-              <div className="row-span-1 border-r border-gray-200 p-2 text-xs text-right text-gray-500 h-8 flex items-center justify-end"> 
+            <React.Fragment key={`${slot.hour}-${slot.minute}`}>
+              <div className="border-r border-gray-200 p-2 text-xs text-right text-gray-500 h-8 flex items-center justify-end"> 
                 <span>{slot.minute === 0 ? slot.formatted : ''}</span>
               </div>
+
               {weekDays.map(day => {
                 const itemsInSlot = getItemsForTimeSlot(day, slot);
+                const isToday = isSameDay(day, currentTime);
+                const currentHour = getHours(currentTime);
+                const currentMinute = getMinutes(currentTime);
+                
+                const isCurrentTimeInThisSlot = 
+                  isToday &&
+                  slot.hour === currentHour && 
+                  currentMinute >= slot.minute && 
+                  currentMinute < slot.minute + 30;
+
+                let timeIndicator = null;
+                if (isCurrentTimeInThisSlot) {
+                  const minuteOffsetInSlot = ((currentMinute - slot.minute) / 30) * 100;
+                  timeIndicator = (
+                    <div 
+                      className="absolute left-0 right-0 h-[3px] bg-red-500 z-30 pointer-events-none"
+                      style={{ top: `${minuteOffsetInSlot}%` }} 
+                    />
+                  );
+                }
                 
                 return (
                   <div
@@ -229,6 +281,8 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                     className="border-b border-r border-gray-100 h-8 relative cursor-pointer hover:bg-blue-50 transition-colors"
                     onClick={() => handleTimeSlotClick(day, slot)}
                   >
+                    {timeIndicator}
+
                     {itemsInSlot.map((item, index, array) => {
                       const isGoogleEvent = 'summary' in item;
                       const title = isGoogleEvent ? item.summary : item.title;
@@ -242,12 +296,9 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                       const startHour = getHours(startDate);
                       const durationInMinutes = (endDate.getTime() - startDate.getTime()) / (1000 * 60);
                       
-                      // Calculate top position based on minutes within the 30-minute slot
                       const topPercent = (startMinute % 30) / 30 * 100;
-                      // Calculate height based on duration relative to a 30-minute slot
                       const heightPercent = (durationInMinutes / 30) * 100;
 
-                      // Only show the event if this is the starting hour and minute matches the slot
                       if (startHour !== slot.hour || Math.floor(startMinute / 30) * 30 !== slot.minute) {
                         return null;
                       }
@@ -261,34 +312,27 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                         const textColor = isLightColor(bgColor) ? 'text-gray-900' : 'text-white';
                         taskClasses += ` ${textColor} hover:opacity-90 ${isGoogleEvent ? 'cursor-default' : 'cursor-pointer'}`;
                         
-                        // Add border for Google Calendar events for better visual distinction
                         if (isGoogleEvent) {
                           taskClasses += " border border-pink-800";
                         }
                       }
 
-                      // Calculate width and left position based on number of events
-                      // Group events by source (Google vs manual)
                       const googleEventCount = array.filter(i => 'summary' in i).length;
                       const taskEventCount = array.length - googleEventCount;
                       
-                      // Adjust width and position based on event type
                       let width, left;
                       
                       if (googleEventCount > 0 && taskEventCount > 0) {
-                        // If we have both types, split the cell 50/50 between Google and manual events
-                        width = 48 / (isGoogleEvent ? googleEventCount : taskEventCount); // Slightly narrower for better margins
-                        // Calculate position within its group
+                        width = 48 / (isGoogleEvent ? googleEventCount : taskEventCount);
                         const groupIndex = isGoogleEvent 
                           ? array.filter(i => 'summary' in i).indexOf(item)
                           : array.filter(i => !('summary' in i)).indexOf(item);
                         left = isGoogleEvent 
-                          ? 1 + (groupIndex * width) // Add 1% margin at start
-                          : 51 + (groupIndex * width); // Add 1% margin between groups
+                          ? 1 + (groupIndex * width)
+                          : 51 + (groupIndex * width);
                       } else {
-                        // If we have only one type, use the full width with margins
-                        width = (98 / array.length); // 98% total width to allow for margins
-                        left = 1 + (index * width); // Add 1% margin at start
+                        width = (98 / array.length);
+                        left = 1 + (index * width);
                       }
 
                       return (
@@ -299,7 +343,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                             top: `${topPercent}%`,
                             height: `${Math.max(heightPercent, 5)}%`,
                             backgroundColor: isCompleted ? undefined : (isGoogleEvent ? '#7D2A4D' : item.color || '#3b82f6'),
-                            width: `calc(${width}% - 2px)`, // Reduced from 4px to 2px
+                            width: `calc(${width}% - 2px)`,
                             left: `${left}%`,
                             right: 'auto'
                           }}
