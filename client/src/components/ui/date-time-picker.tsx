@@ -34,9 +34,12 @@ export function RangeTimePicker({
   const minuteOptions = Array.from({ length: 4 }, (_, i) => i * 15);
   const hourOptions = Array.from({ length: 11 }, (_, i) => i + 8);
 
-  // Add state for controlling popovers
   const [dateOpen, setDateOpen] = React.useState(false);
   const [timeOpen, setTimeOpen] = React.useState(false);
+
+  // Add refs to track touch interaction
+  const dateButtonRef = React.useRef<HTMLButtonElement>(null);
+  const timeButtonRef = React.useRef<HTMLButtonElement>(null);
 
   const handleStartTimeChange = (date: Date) => {
     onRangeChange(date, endDate && date > endDate ? addMinutes(date, 30) : endDate);
@@ -53,21 +56,38 @@ export function RangeTimePicker({
     return `${start}-${end}`;
   };
 
+  const handleButtonClick = (e: React.MouseEvent | React.TouchEvent, type: 'date' | 'time') => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (type === 'date') {
+      setDateOpen(true);
+      setTimeOpen(false);
+    } else {
+      setTimeOpen(true);
+      setDateOpen(false);
+    }
+  };
+
   return (
     <div className="flex gap-2 w-full">
       {/* Date Selection */}
-      <Popover open={dateOpen} onOpenChange={setDateOpen}>
+      <Popover open={dateOpen} onOpenChange={(open) => {
+        // Only allow programmatic closing
+        if (open === false && !timeOpen) {
+          setDateOpen(false);
+        }
+      }}>
         <PopoverTrigger asChild>
           <Button
+            ref={dateButtonRef}
             variant={"outline"}
             className={cn(
               "justify-start text-left font-normal w-[50%]",
               !startDate && "text-muted-foreground"
             )}
-            onTouchStart={(e) => {
-              e.preventDefault();
-              setDateOpen(true);
-            }}
+            onClick={(e) => handleButtonClick(e, 'date')}
+            onTouchEnd={(e) => handleButtonClick(e, 'date')}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {startDate ? format(startDate, "MMMM do") : "Pick a date"}
@@ -76,12 +96,12 @@ export function RangeTimePicker({
         <PopoverContent 
           className="w-auto p-0" 
           align="start"
+          onPointerDownOutside={(e) => e.preventDefault()}
           onInteractOutside={(e) => {
-            // Prevent immediate closing on touch devices
-            if (e.type === 'touchend') {
-              e.preventDefault();
-            }
+            e.preventDefault();
           }}
+          side="bottom"
+          sideOffset={4}
         >
           <Calendar
             mode="single"
@@ -94,8 +114,7 @@ export function RangeTimePicker({
                   newDate.setMinutes(startDate.getMinutes());
                 }
                 handleStartTimeChange(newDate);
-                // Add small delay before closing
-                setTimeout(() => setDateOpen(false), 100);
+                setTimeout(() => setDateOpen(false), 150);
               }
             }}
             disabled={(date) => isWeekend(date)}
@@ -106,18 +125,22 @@ export function RangeTimePicker({
       </Popover>
 
       {/* Time Range Selection */}
-      <Popover open={timeOpen} onOpenChange={setTimeOpen}>
+      <Popover open={timeOpen} onOpenChange={(open) => {
+        // Only allow programmatic closing
+        if (open === false && !dateOpen) {
+          setTimeOpen(false);
+        }
+      }}>
         <PopoverTrigger asChild>
           <Button
+            ref={timeButtonRef}
             variant={"outline"}
             className={cn(
               "justify-start text-left font-normal w-[50%]",
               !startDate && "text-muted-foreground"
             )}
-            onTouchStart={(e) => {
-              e.preventDefault();
-              setTimeOpen(true);
-            }}
+            onClick={(e) => handleButtonClick(e, 'time')}
+            onTouchEnd={(e) => handleButtonClick(e, 'time')}
           >
             <Clock className="mr-2 h-4 w-4" />
             {formatTimeRange()}
@@ -126,12 +149,12 @@ export function RangeTimePicker({
         <PopoverContent 
           className="w-auto p-3" 
           align="start"
+          onPointerDownOutside={(e) => e.preventDefault()}
           onInteractOutside={(e) => {
-            // Prevent immediate closing on touch devices
-            if (e.type === 'touchend') {
-              e.preventDefault();
-            }
+            e.preventDefault();
           }}
+          side="bottom"
+          sideOffset={4}
         >
           <div className="space-y-4">
             {/* Start Time */}
