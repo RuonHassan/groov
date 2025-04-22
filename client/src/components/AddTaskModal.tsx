@@ -172,7 +172,7 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] md:max-w-[550px] p-6 rounded-lg overflow-hidden">
+      <DialogContent className="!max-w-[400px] sm:!max-w-[400px] md:!max-w-[450px] p-6 rounded-lg overflow-hidden">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField control={form.control} name="title" render={({ field }) => (
