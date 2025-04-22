@@ -240,7 +240,78 @@ export default function GoogleCalendarButton() {
     }
   };
 
-  // Function to revoke existing Google token
+  const handleDeleteCalendar = async () => {
+    if (!session?.user?.id || calendars.length === 0) return;
+
+    try {
+      setIsLoading(true);
+      const calendar = calendars[0]; // Get the first calendar since we only support one for now
+
+      // First revoke the Google token
+      if (calendar.access_token) {
+        try {
+          console.log('Revoking Google access token...');
+          const response = await fetch(`https://oauth2.googleapis.com/revoke?token=${calendar.access_token}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+            }
+          });
+          
+          if (response.ok) {
+            console.log('Successfully revoked Google token');
+          } else {
+            console.warn('Failed to revoke token:', await response.text());
+          }
+        } catch (error) {
+          console.error('Error revoking Google token:', error);
+        }
+      }
+
+      // Clear Google API token
+      if (window.gapi?.client?.getToken()) {
+        window.gapi.client.setToken(null);
+      }
+
+      // Delete the calendar connection from Supabase
+      const { error: deleteError } = await supabase
+        .from('connected_calendars')
+        .delete()
+        .eq('id', calendar.id);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      // Invalidate the React Query cache to refetch calendar data
+      await queryClient.invalidateQueries({ queryKey: ['connectedCalendars'] });
+
+      // Redirect user to Google Account permissions page
+      const shouldRevoke = window.confirm(
+        "To ensure you receive a refresh token on reconnection, please also remove access from your Google Account. Would you like to do this now?"
+      );
+      
+      if (shouldRevoke) {
+        window.open("https://myaccount.google.com/permissions", "_blank");
+      }
+
+      toast({
+        title: "Calendar Disconnected",
+        description: "Successfully disconnected Google Calendar. You can now reconnect to receive a refresh token.",
+      });
+    } catch (error: any) {
+      console.error('Error deleting calendar connection:', error);
+      toast({
+        title: "Error",
+        description: "Could not disconnect calendar. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Update the revokeGoogleToken function to be more thorough
   const revokeGoogleToken = async () => {
     if (!window.google?.accounts?.oauth2) {
       console.warn('Google OAuth2 API not available');
@@ -256,26 +327,42 @@ export default function GoogleCalendarButton() {
         if (token) {
           console.log('Revoking existing Google token');
           
-          // Revoke the token
-          const response = await fetch(`https://oauth2.googleapis.com/revoke?token=${token}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded'
+          try {
+            // Revoke the token
+            const response = await fetch(`https://oauth2.googleapis.com/revoke?token=${token}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+              }
+            });
+            
+            if (response.ok) {
+              console.log('Successfully revoked Google token');
+            } else {
+              console.warn('Failed to revoke token:', await response.text());
+              // If revocation fails, suggest manual revocation
+              const shouldRevoke = window.confirm(
+                "Unable to automatically revoke previous access. Would you like to manually remove access from your Google Account?"
+              );
+              
+              if (shouldRevoke) {
+                window.open("https://myaccount.google.com/permissions", "_blank");
+                return false; // Indicate that manual intervention is needed
+              }
             }
-          });
-          
-          if (response.ok) {
-            console.log('Successfully revoked Google token');
-          } else {
-            console.warn('Failed to revoke token:', await response.text());
+          } catch (error) {
+            console.error('Error revoking token:', error);
+            return false;
           }
         }
         
         // Clear the token from GAPI regardless of revoke success
         window.gapi.client.setToken(null);
       }
+      return true;
     } catch (error) {
-      console.error('Error revoking token:', error);
+      console.error('Error in revokeGoogleToken:', error);
+      return false;
     }
   };
 
@@ -292,10 +379,15 @@ export default function GoogleCalendarButton() {
     setIsLoading(true);
     try {
       // First revoke any existing tokens to force a fresh auth
-      await revokeGoogleToken();
+      const revoked = await revokeGoogleToken();
+      
+      if (!revoked) {
+        // If token revocation failed or required manual intervention, stop here
+        setIsLoading(false);
+        return;
+      }
       
       // Define options with access_type and approval_prompt for the OAuth flow
-      // Note: These parameters are crucial for receiving a refresh token
       const options = {
         prompt: 'consent', // Force the consent screen to appear every time
         access_type: 'offline', // Request a refresh token
@@ -320,11 +412,12 @@ export default function GoogleCalendarButton() {
           setIsLoading(false);
         },
         // Force select account for better user experience and to avoid consent caching
+        prompt: 'consent',
         hint: '',
         ux_mode: 'popup', // Use popup rather than redirect for better flow
       });
 
-      // Request access token with options (prompt, access_type, etc.)
+      // Request access token with options
       tokenClient.requestAccessToken(options);
     } catch (error: any) {
       console.error('Auth error:', error);
@@ -333,48 +426,6 @@ export default function GoogleCalendarButton() {
         description: error.message || "Could not connect to Google Calendar",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDeleteCalendar = async () => {
-    if (!session?.user?.id || calendars.length === 0) return;
-
-    try {
-      setIsLoading(true);
-      const calendar = calendars[0]; // Get the first calendar since we only support one for now
-
-      // Delete the calendar connection from Supabase
-      const { error: deleteError } = await supabase
-        .from('connected_calendars')
-        .delete()
-        .eq('id', calendar.id);
-
-      if (deleteError) {
-        throw deleteError;
-      }
-
-      // Clear Google API token
-      if (window.gapi?.client?.getToken()) {
-        window.gapi.client.setToken(null);
-      }
-
-      // Invalidate the React Query cache to refetch calendar data
-      await queryClient.invalidateQueries({ queryKey: ['connectedCalendars'] });
-
-      toast({
-        title: "Calendar Disconnected",
-        description: "Successfully disconnected Google Calendar",
-      });
-    } catch (error: any) {
-      console.error('Error deleting calendar connection:', error);
-      toast({
-        title: "Error",
-        description: "Could not disconnect calendar. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
       setIsLoading(false);
     }
   };
