@@ -75,6 +75,50 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); 
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
 
+  const allWeekDays = Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
+  
+  // Get visible days based on screen size and current day
+  const getVisibleDays = () => {
+    // On desktop, show all weekdays (Mon-Fri)
+    if (window.innerWidth >= 768) {
+      return allWeekDays.filter(day => {
+        const dayOfWeek = getDay(day);
+        return dayOfWeek !== 0 && dayOfWeek !== 6; // Exclude Sunday (0) and Saturday (6)
+      });
+    }
+    
+    // On mobile, show 3 days based on current day
+    const today = new Date();
+    const dayOfWeek = getDay(today);
+    
+    // If it's Monday, show Mon-Wed
+    if (dayOfWeek === 1) {
+      return allWeekDays.slice(0, 3);
+    }
+    // If it's Tuesday, show Tue-Thu
+    else if (dayOfWeek === 2) {
+      return allWeekDays.slice(1, 4);
+    }
+    // For all other days (Wed-Fri), show Wed-Fri
+    else {
+      return allWeekDays.slice(2, 5);
+    }
+  };
+
+  const [visibleDays, setVisibleDays] = useState(getVisibleDays());
+
+  // Update visible days when window is resized or date changes
+  useEffect(() => {
+    const handleResize = () => {
+      setVisibleDays(getVisibleDays());
+    };
+
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial call
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, [currentDate]); // Re-run when date changes
+
   // Effect to update current time every minute
   useEffect(() => {
     const timerId = setInterval(() => {
@@ -121,12 +165,6 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
 
     fetchGoogleEvents();
   }, [isConnected, calendars, currentDate]); // Only depend on isConnected, calendars, and currentDate
-
-  const allWeekDays = Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
-  const weekDays = allWeekDays.filter(day => {
-      const dayOfWeek = getDay(day);
-      return dayOfWeek !== 0 && dayOfWeek !== 6; // Exclude Sunday (0) and Saturday (6)
-  });
 
   const formatWeekdayHeader = (date: Date) => format(date, 'EEE');
   const formatDateHeader = (date: Date) => format(date, 'd');
@@ -232,10 +270,10 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
         </div>
       </div>
       
-      <div className="border-t border-gray-200">
-        <div className="grid grid-cols-[auto_repeat(5,minmax(0,1fr))] min-w-[800px]">
+      <div className="border-t border-gray-200 overflow-x-hidden">
+        <div className={`grid md:grid-cols-[auto_repeat(5,minmax(0,1fr))] grid-cols-[auto_repeat(3,minmax(0,1fr))] md:min-w-[800px]`}>
           <div className="sticky top-0 z-20 bg-white border-r border-b border-gray-200 p-2 text-xs font-medium text-gray-500 text-center">Time</div>
-          {weekDays.map(day => (
+          {visibleDays.map(day => (
               <div 
                   key={day.toISOString()} 
                   className="sticky top-0 z-20 bg-white border-b border-gray-200 p-2 text-center">
@@ -252,7 +290,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                 <span>{slot.minute === 0 ? slot.formatted : ''}</span>
               </div>
 
-              {weekDays.map(day => {
+              {visibleDays.map(day => {
                 const itemsInSlot = getItemsForTimeSlot(day, slot);
                 const isToday = isSameDay(day, currentTime);
                 const currentHour = getHours(currentTime);
