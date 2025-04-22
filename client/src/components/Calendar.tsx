@@ -249,11 +249,36 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                         const bgColor = isGoogleEvent ? '#7D2A4D' : (item.color || '#3b82f6');
                         const textColor = isLightColor(bgColor) ? 'text-gray-900' : 'text-white';
                         taskClasses += ` ${textColor} hover:opacity-90 ${isGoogleEvent ? 'cursor-default' : 'cursor-pointer'}`;
+                        
+                        // Add border for Google Calendar events for better visual distinction
+                        if (isGoogleEvent) {
+                          taskClasses += " border border-pink-800";
+                        }
                       }
 
                       // Calculate width and left position based on number of events
-                      const width = 100 / array.length;
-                      const left = (index * width);
+                      // Group events by source (Google vs manual)
+                      const googleEventCount = array.filter(i => 'summary' in i).length;
+                      const taskEventCount = array.length - googleEventCount;
+                      
+                      // Adjust width and position based on event type
+                      let width, left;
+                      
+                      if (googleEventCount > 0 && taskEventCount > 0) {
+                        // If we have both types, split the cell 50/50 between Google and manual events
+                        width = 48 / (isGoogleEvent ? googleEventCount : taskEventCount); // Slightly narrower for better margins
+                        // Calculate position within its group
+                        const groupIndex = isGoogleEvent 
+                          ? array.filter(i => 'summary' in i).indexOf(item)
+                          : array.filter(i => !('summary' in i)).indexOf(item);
+                        left = isGoogleEvent 
+                          ? 1 + (groupIndex * width) // Add 1% margin at start
+                          : 51 + (groupIndex * width); // Add 1% margin between groups
+                      } else {
+                        // If we have only one type, use the full width with margins
+                        width = (98 / array.length); // 98% total width to allow for margins
+                        left = 1 + (index * width); // Add 1% margin at start
+                      }
 
                       return (
                         <div
@@ -263,7 +288,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                             top: `${topPercent}%`,
                             height: `${Math.max(heightPercent, 5)}%`,
                             backgroundColor: isCompleted ? undefined : (isGoogleEvent ? '#7D2A4D' : item.color || '#3b82f6'),
-                            width: `calc(${width}% - 4px)`,
+                            width: `calc(${width}% - 2px)`, // Reduced from 4px to 2px
                             left: `${left}%`,
                             right: 'auto'
                           }}
@@ -277,7 +302,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                           }}
                         >
                           <p className="font-medium truncate">
-                            {isGoogleEvent && '🗓️ '}{title}
+                            {title}
                           </p>
                         </div>
                       );

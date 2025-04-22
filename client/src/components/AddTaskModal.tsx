@@ -173,46 +173,68 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md rounded-lg pt-6">
+      <DialogContent className="sm:max-w-[500px] md:max-w-[550px] p-6 rounded-lg overflow-hidden">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField control={form.control} name="title" render={({ field }) => (
                 <FormItem>
-                  <FormControl><Input placeholder="What needs to be done?" {...field} /></FormControl>
+                  <FormControl><Input placeholder="What needs to be done?" {...field} className="w-full" /></FormControl>
                   <FormMessage />
                 </FormItem>
             )} />
             
-            <div className="flex gap-2 items-start">
+            <div className="flex flex-col sm:flex-row gap-2 w-full">
               <FormField control={form.control} name="startTime" render={({ field }) => (
-                     <FormItem className="flex-1">
-                       <FormControl><Input type="datetime-local" {...field} value={field.value || ""} placeholder="Start time" /></FormControl>
-                       <FormMessage />
-                     </FormItem>
-                 )} />
+                <FormItem className="flex-1 w-full">
+                  <FormControl>
+                    <Input 
+                      type="datetime-local" 
+                      {...field} 
+                      value={field.value || ""} 
+                      placeholder="Start time" 
+                      className="w-full"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
               <FormField control={form.control} name="endTime" render={({ field }) => (
-                     <FormItem className="flex-1">
-                       <FormControl><Input type="datetime-local" {...field} value={field.value || ""} placeholder="End time" /></FormControl>
-                       <FormMessage />
-                     </FormItem>
-                 )} />
+                <FormItem className="flex-1 w-full">
+                  <FormControl>
+                    <Input 
+                      type="datetime-local" 
+                      {...field} 
+                      value={field.value || ""} 
+                      placeholder="End time" 
+                      className="w-full"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
             </div>
            
             <FormField control={form.control} name="color" render={({ field }) => (
-                   <FormItem>
-                     <FormControl><Input type="color" {...field} className="h-10 w-full p-0 border-0 rounded-md" /></FormControl>
-                     <FormMessage />
-                   </FormItem>
-               )} />
+              <FormItem>
+                <FormControl>
+                  <Input 
+                    type="color" 
+                    {...field} 
+                    className="h-10 w-full p-0 border-0 rounded-md" 
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
 
             <FormField control={form.control} name="notes" render={({ field }) => (
                 <FormItem>
-                  <FormControl><Textarea placeholder="Add details..." rows={3} {...field} value={field.value || ""} /></FormControl>
+                  <FormControl><Textarea placeholder="Add details..." rows={3} {...field} value={field.value || ""} className="w-full" /></FormControl>
                   <FormMessage />
                 </FormItem>
             )} />
             
-            <DialogFooter className="pt-4 flex justify-between items-center">
+            <DialogFooter className="pt-4 flex justify-between items-center gap-2">
               {isEditing && (
                 <Button
                   type="button"
@@ -225,7 +247,7 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
                   Delete
                 </Button>
               )}
-              <Button type="submit">
+              <Button type="submit" className="w-full sm:w-auto">
                 {isEditing ? "Save Changes" : "Create Task"}
               </Button>
             </DialogFooter>
