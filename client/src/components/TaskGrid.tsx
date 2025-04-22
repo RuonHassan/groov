@@ -232,15 +232,20 @@ export default function TaskGrid() {
 
   return (
     <div className="w-full flex flex-col h-full relative">
-      <div className="flex-1 overflow-y-auto pb-16">
+      <div className="flex-1 overflow-y-auto pb-16 md:pb-24">
         {renderSection("Today", organizedTasks.today, "today", true)}
         {renderSection("Tomorrow", organizedTasks.tomorrow, "tomorrow", true)}
         {renderSection("Future", organizedTasks.future, "future", true)}
         <div className="h-8" />
         {renderSection("Someday", organizedTasks.someday, "someday", true)}
         <NewTaskCard />
+        {/* On mobile, completed section is part of the main scroll */}
+        <div className="md:hidden">
+          {renderSection(`Completed`, organizedTasks.completed, "completed", true)}
+        </div>
       </div>
-      <div className="sticky bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-sm z-10">
+      {/* On desktop, completed section is sticky at bottom */}
+      <div className="hidden md:block sticky bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-sm z-10">
         {renderSection(`Completed`, organizedTasks.completed, "completed", true)}
       </div>
     </div>

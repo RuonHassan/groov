@@ -21,6 +21,7 @@ import { InsertTask, Task } from "@shared/schema";
 import { useTaskContext } from "@/contexts/TaskContext";
 import { X, Calendar, Clock, Palette, Trash2 } from "lucide-react";
 import { formatISO, parseISO, isValid } from 'date-fns';
+import { RangeTimePicker } from "@/components/ui/date-time-picker";
 
 // Function to format Date object or ISO string into yyyy-MM-ddTHH:mm for datetime-local input
 const formatDateTimeLocal = (date: string | Date | null | undefined): string => {
@@ -42,10 +43,9 @@ const formatDateTimeLocal = (date: string | Date | null | undefined): string => 
 };
 
 // Helper to convert datetime-local string to ISO string or null
-const formatToISO = (dateTimeLocal: string | null | undefined): string | null => {
-  if (!dateTimeLocal) return null;
+const formatToISO = (date: Date | undefined | null): string | null => {
+  if (!date) return null;
   try {
-    const date = new Date(dateTimeLocal);
     return isValid(date) ? date.toISOString() : null;
   } catch {
     return null;
@@ -57,11 +57,11 @@ const taskFormValidationSchema = z.object({
   title: z.string().min(1, { message: "Title is required" }),
   notes: z.string().optional().nullable(),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid color hex").optional().default("#5D2E8C"),
-  startTime: z.string().optional().nullable(),
-  endTime: z.string().optional().nullable(),
+  startTime: z.date().optional().nullable(),
+  endTime: z.date().optional().nullable(),
 }).refine(data => {
   if (data.startTime && data.endTime) {
-    try { return new Date(data.endTime) > new Date(data.startTime); } catch { return false; }
+    return data.endTime > data.startTime;
   }
   return true; 
 }, {
@@ -91,8 +91,8 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
       title: task?.title || "",
       notes: task?.notes || "",
       color: task?.color || "#5D2E8C",
-      startTime: task?.start_time || defaultStartTime || "",
-      endTime: task?.end_time || defaultEndTime || "",
+      startTime: task?.start_time ? parseISO(task.start_time) : (defaultStartTime ? parseISO(defaultStartTime) : null),
+      endTime: task?.end_time ? parseISO(task.end_time) : (defaultEndTime ? parseISO(defaultEndTime) : null),
     },
   });
 
@@ -102,26 +102,25 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
       form.reset({
         title: task.title,
         notes: task.notes || "",
-        // Read snake_case from task object
-        color: (task as any).color || "#3b82f6", 
-        startTime: formatDateTimeLocal((task as any).start_time), // Read snake_case
-        endTime: formatDateTimeLocal((task as any).end_time),     // Read snake_case
+        color: (task as any).color || "#3b82f6",
+        startTime: (task as any).start_time ? parseISO((task as any).start_time) : null,
+        endTime: (task as any).end_time ? parseISO((task as any).end_time) : null,
       });
     } else if (!isEditing && open) {
       form.reset({
         title: "",
         notes: "",
         color: "#5D2E8C",
-        startTime: formatDateTimeLocal(defaultStartTime),
-        endTime: formatDateTimeLocal(defaultEndTime),
+        startTime: defaultStartTime ? parseISO(defaultStartTime) : null,
+        endTime: defaultEndTime ? parseISO(defaultEndTime) : null,
       });
     } else if (!open) {
       form.reset({
         title: "",
         notes: "",
         color: "#5D2E8C",
-        startTime: "",
-        endTime: "",
+        startTime: null,
+        endTime: null,
       });
     }
   }, [task, isEditing, open, form, defaultStartTime, defaultEndTime]);
@@ -183,36 +182,26 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
                 </FormItem>
             )} />
             
-            <div className="flex flex-col sm:flex-row gap-2 w-full">
-              <FormField control={form.control} name="startTime" render={({ field }) => (
-                <FormItem className="flex-1 w-full">
+            <FormField
+              control={form.control}
+              name="startTime"
+              render={({ field }) => (
+                <FormItem className="flex-1">
                   <FormControl>
-                    <Input 
-                      type="datetime-local" 
-                      {...field} 
-                      value={field.value || ""} 
-                      placeholder="Start time" 
-                      className="w-full"
+                    <RangeTimePicker
+                      startDate={field.value || undefined}
+                      endDate={form.getValues("endTime") || undefined}
+                      onRangeChange={(start, end) => {
+                        form.setValue("startTime", start || null);
+                        form.setValue("endTime", end || null);
+                      }}
+                      placeholder="Select time range"
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
-              )} />
-              <FormField control={form.control} name="endTime" render={({ field }) => (
-                <FormItem className="flex-1 w-full">
-                  <FormControl>
-                    <Input 
-                      type="datetime-local" 
-                      {...field} 
-                      value={field.value || ""} 
-                      placeholder="End time" 
-                      className="w-full"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            </div>
+              )}
+            />
            
             <FormField control={form.control} name="color" render={({ field }) => (
               <FormItem>
