@@ -10,6 +10,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import * as PopoverPrimitive from "@radix-ui/react-popover";
 
 interface DateTimePickerProps {
   date: Date | undefined;
@@ -31,7 +32,11 @@ export function RangeTimePicker({
   placeholder = "Pick date and time range",
 }: RangeTimePickerProps) {
   const minuteOptions = Array.from({ length: 4 }, (_, i) => i * 15);
-  const hourOptions = Array.from({ length: 11 }, (_, i) => i + 8); // 8 AM to 6 PM
+  const hourOptions = Array.from({ length: 11 }, (_, i) => i + 8);
+
+  // Add state for controlling popovers
+  const [dateOpen, setDateOpen] = React.useState(false);
+  const [timeOpen, setTimeOpen] = React.useState(false);
 
   const handleStartTimeChange = (date: Date) => {
     onRangeChange(date, endDate && date > endDate ? addMinutes(date, 30) : endDate);
@@ -51,7 +56,7 @@ export function RangeTimePicker({
   return (
     <div className="flex gap-2 w-full">
       {/* Date Selection */}
-      <Popover>
+      <Popover open={dateOpen} onOpenChange={setDateOpen}>
         <PopoverTrigger asChild>
           <Button
             variant={"outline"}
@@ -59,12 +64,25 @@ export function RangeTimePicker({
               "justify-start text-left font-normal w-[50%]",
               !startDate && "text-muted-foreground"
             )}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              setDateOpen(true);
+            }}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {startDate ? format(startDate, "MMMM do") : "Pick a date"}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent 
+          className="w-auto p-0" 
+          align="start"
+          onInteractOutside={(e) => {
+            // Prevent immediate closing on touch devices
+            if (e.type === 'touchend') {
+              e.preventDefault();
+            }
+          }}
+        >
           <Calendar
             mode="single"
             selected={startDate}
@@ -76,6 +94,8 @@ export function RangeTimePicker({
                   newDate.setMinutes(startDate.getMinutes());
                 }
                 handleStartTimeChange(newDate);
+                // Add small delay before closing
+                setTimeout(() => setDateOpen(false), 100);
               }
             }}
             disabled={(date) => isWeekend(date)}
@@ -86,7 +106,7 @@ export function RangeTimePicker({
       </Popover>
 
       {/* Time Range Selection */}
-      <Popover>
+      <Popover open={timeOpen} onOpenChange={setTimeOpen}>
         <PopoverTrigger asChild>
           <Button
             variant={"outline"}
@@ -94,12 +114,25 @@ export function RangeTimePicker({
               "justify-start text-left font-normal w-[50%]",
               !startDate && "text-muted-foreground"
             )}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              setTimeOpen(true);
+            }}
           >
             <Clock className="mr-2 h-4 w-4" />
             {formatTimeRange()}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-3" align="start">
+        <PopoverContent 
+          className="w-auto p-3" 
+          align="start"
+          onInteractOutside={(e) => {
+            // Prevent immediate closing on touch devices
+            if (e.type === 'touchend') {
+              e.preventDefault();
+            }
+          }}
+        >
           <div className="space-y-4">
             {/* Start Time */}
             <div>
