@@ -73,11 +73,10 @@ export function RangeTimePicker({
     <div className="flex gap-2 w-full">
       {/* Date Selection */}
       <Popover open={dateOpen} onOpenChange={(open) => {
-        // Only allow programmatic closing
-        if (open === false && !timeOpen) {
+        if (!open) {
           setDateOpen(false);
         }
-      }}>
+      }} modal>
         <PopoverTrigger asChild>
           <Button
             ref={dateButtonRef}
@@ -94,14 +93,19 @@ export function RangeTimePicker({
           </Button>
         </PopoverTrigger>
         <PopoverContent 
-          className="w-auto p-0" 
+          className="w-auto p-0 z-[9999]" 
           align="start"
-          onPointerDownOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
           onInteractOutside={(e) => {
             e.preventDefault();
+            e.stopPropagation();
           }}
           side="bottom"
           sideOffset={4}
+          forceMount
         >
           <Calendar
             mode="single"
@@ -126,11 +130,10 @@ export function RangeTimePicker({
 
       {/* Time Range Selection */}
       <Popover open={timeOpen} onOpenChange={(open) => {
-        // Only allow programmatic closing
-        if (open === false && !dateOpen) {
+        if (!open) {
           setTimeOpen(false);
         }
-      }}>
+      }} modal>
         <PopoverTrigger asChild>
           <Button
             ref={timeButtonRef}
@@ -147,14 +150,19 @@ export function RangeTimePicker({
           </Button>
         </PopoverTrigger>
         <PopoverContent 
-          className="w-auto p-3" 
+          className="w-auto p-3 z-[9999]" 
           align="start"
-          onPointerDownOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
           onInteractOutside={(e) => {
             e.preventDefault();
+            e.stopPropagation();
           }}
           side="bottom"
           sideOffset={4}
+          forceMount
         >
           <div className="space-y-4">
             {/* Start Time */}
@@ -172,7 +180,7 @@ export function RangeTimePicker({
                   <SelectTrigger className="w-[100px]">
                     <SelectValue placeholder="Hour" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[99999]">
                     {hourOptions.map((hour) => (
                       <SelectItem key={hour} value={hour.toString()}>
                         {hour.toString().padStart(2, "0")}:00
@@ -191,7 +199,7 @@ export function RangeTimePicker({
                   <SelectTrigger className="w-[100px]">
                     <SelectValue placeholder="Minute" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[99999]">
                     {minuteOptions.map((minute) => (
                       <SelectItem key={minute} value={minute.toString()}>
                         :{minute.toString().padStart(2, "0")}
@@ -217,7 +225,7 @@ export function RangeTimePicker({
                   <SelectTrigger className="w-[100px]">
                     <SelectValue placeholder="Hour" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[99999]">
                     {hourOptions.map((hour) => (
                       <SelectItem key={hour} value={hour.toString()}>
                         {hour.toString().padStart(2, "0")}:00
@@ -236,7 +244,7 @@ export function RangeTimePicker({
                   <SelectTrigger className="w-[100px]">
                     <SelectValue placeholder="Minute" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[99999]">
                     {minuteOptions.map((minute) => (
                       <SelectItem key={minute} value={minute.toString()}>
                         :{minute.toString().padStart(2, "0")}
@@ -263,7 +271,7 @@ export function DateTimePicker({
   const hourOptions = Array.from({ length: 24 }, (_, i) => i);
 
   return (
-    <Popover>
+    <Popover modal>
       <PopoverTrigger asChild>
         <Button
           variant={"outline"}
@@ -276,7 +284,7 @@ export function DateTimePicker({
           {date ? format(date, "PPp") : placeholder}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto p-0 z-[9999]" align="start">
         <Calendar
           mode="single"
           selected={date}
@@ -308,7 +316,7 @@ export function DateTimePicker({
             <SelectTrigger className="w-[100px]">
               <SelectValue placeholder="Hour" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="z-[99999]">
               {hourOptions.map((hour) => (
                 <SelectItem key={hour} value={hour.toString()}>
                   {hour.toString().padStart(2, "0")}:00
@@ -327,7 +335,7 @@ export function DateTimePicker({
             <SelectTrigger className="w-[100px]">
               <SelectValue placeholder="Minute" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="z-[99999]">
               {minuteOptions.map((minute) => (
                 <SelectItem key={minute} value={minute.toString()}>
                   :{minute.toString().padStart(2, "0")}
