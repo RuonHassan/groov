@@ -76,7 +76,7 @@ export function RangeTimePicker({
         if (!open) {
           setDateOpen(false);
         }
-      }}>
+      }} modal>
         <PopoverTrigger asChild>
           <Button
             ref={dateButtonRef}
@@ -95,8 +95,17 @@ export function RangeTimePicker({
         <PopoverContent 
           className="w-auto p-0 z-[9999]" 
           align="start"
+          onPointerDownOutside={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onInteractOutside={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
           side="bottom"
           sideOffset={4}
+          forceMount
         >
           <Calendar
             mode="single"
@@ -113,6 +122,7 @@ export function RangeTimePicker({
               }
             }}
             disabled={(date) => isWeekend(date)}
+            initialFocus
             weekStartsOn={1}
           />
         </PopoverContent>
@@ -123,7 +133,7 @@ export function RangeTimePicker({
         if (!open) {
           setTimeOpen(false);
         }
-      }}>
+      }} modal>
         <PopoverTrigger asChild>
           <Button
             ref={timeButtonRef}
@@ -142,8 +152,17 @@ export function RangeTimePicker({
         <PopoverContent 
           className="w-auto p-3 z-[9999]" 
           align="start"
+          onPointerDownOutside={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onInteractOutside={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
           side="bottom"
           sideOffset={4}
+          forceMount
         >
           <div className="space-y-4">
             {/* Start Time */}
