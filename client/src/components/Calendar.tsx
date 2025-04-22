@@ -29,10 +29,18 @@ interface GoogleEvent {
 function generateTimeSlots(): TimeSlot[] {
   const slots: TimeSlot[] = [];
   for (let hour = 8; hour <= 18; hour++) {
+    // Add the hour slot (XX:00)
     slots.push({
       hour,
       minute: 0,
       formatted: format(new Date().setHours(hour, 0), 'h:mm a')
+    });
+    
+    // Add the half-hour slot (XX:30)
+    slots.push({
+      hour,
+      minute: 30,
+      formatted: format(new Date().setHours(hour, 30), 'h:mm a')
     });
   }
   return slots;
@@ -118,7 +126,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
       if (!isValid(itemStart) || !isValid(itemEnd)) return false;
 
       const slotStart = new Date(date.getFullYear(), date.getMonth(), date.getDate(), timeSlot.hour, timeSlot.minute);
-      const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
+      const slotEnd = new Date(slotStart.getTime() + 30 * 60 * 1000); // 30 minutes instead of 60
 
       return itemStart < slotEnd && itemEnd > slotStart;
     } catch (e) {
@@ -209,8 +217,8 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
 
           {timeSlots.map(slot => (
             <React.Fragment key={slot.formatted}>
-              <div className="row-span-1 border-r border-gray-200 p-2 text-xs text-right text-gray-500 h-16 flex items-center justify-end"> 
-                <span>{slot.formatted}</span>
+              <div className="row-span-1 border-r border-gray-200 p-2 text-xs text-right text-gray-500 h-8 flex items-center justify-end"> 
+                <span>{slot.minute === 0 ? slot.formatted : ''}</span>
               </div>
               {weekDays.map(day => {
                 const itemsInSlot = getItemsForTimeSlot(day, slot);
@@ -218,7 +226,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                 return (
                   <div
                     key={day.toISOString() + slot.formatted}
-                    className="border-b border-r border-gray-100 h-16 relative cursor-pointer hover:bg-blue-50 transition-colors"
+                    className="border-b border-r border-gray-100 h-8 relative cursor-pointer hover:bg-blue-50 transition-colors"
                     onClick={() => handleTimeSlotClick(day, slot)}
                   >
                     {itemsInSlot.map((item, index, array) => {
@@ -233,11 +241,14 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                       const startMinute = getMinutes(startDate);
                       const startHour = getHours(startDate);
                       const durationInMinutes = (endDate.getTime() - startDate.getTime()) / (1000 * 60);
-                      const topPercent = (startMinute / 60) * 100;
-                      const heightPercent = (durationInMinutes / 60) * 100;
+                      
+                      // Calculate top position based on minutes within the 30-minute slot
+                      const topPercent = (startMinute % 30) / 30 * 100;
+                      // Calculate height based on duration relative to a 30-minute slot
+                      const heightPercent = (durationInMinutes / 30) * 100;
 
-                      // Only show the event if this is the starting hour
-                      if (startHour !== slot.hour) {
+                      // Only show the event if this is the starting hour and minute matches the slot
+                      if (startHour !== slot.hour || Math.floor(startMinute / 30) * 30 !== slot.minute) {
                         return null;
                       }
 

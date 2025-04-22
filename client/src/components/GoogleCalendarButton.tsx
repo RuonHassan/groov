@@ -194,6 +194,7 @@ export default function GoogleCalendarButton() {
         client_id: CLIENT_ID,
         scope: SCOPES,
         callback: handleTokenResponse,
+        access_type: 'offline'
       });
 
       tokenClient.requestAccessToken({ prompt: 'consent' });
