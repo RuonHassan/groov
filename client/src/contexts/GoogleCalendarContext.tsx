@@ -25,6 +25,7 @@ const refreshAccessToken = async (calendar: ConnectedCalendar): Promise<Connecte
   }
 
   try {
+    console.log('Attempting to refresh token using refresh_token');
     // Request new access token using refresh token
     const response = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -40,10 +41,13 @@ const refreshAccessToken = async (calendar: ConnectedCalendar): Promise<Connecte
     });
 
     if (!response.ok) {
-      throw new Error('Failed to refresh token');
+      const errorText = await response.text();
+      console.error('Token refresh failed with status:', response.status, errorText);
+      throw new Error(`Failed to refresh token: ${response.status} ${errorText}`);
     }
 
     const data = await response.json();
+    console.log('Token refresh successful, expires_in:', data.expires_in);
     
     // Calculate new expiry time
     const now = Date.now();

@@ -113,6 +113,13 @@ export default function GoogleCalendarButton() {
 
     try {
       console.log('Google Auth successful, fetching primary calendar info...');
+      // Add debug logging for received tokens
+      console.log('Received response from Google:', {
+        hasAccessToken: !!response.access_token,
+        hasRefreshToken: !!response.refresh_token,
+        expiresIn: response.expires_in
+      });
+      
       const accessToken = response.access_token;
       const expiresIn = response.expires_in;
       const refreshToken = response.refresh_token || null;
@@ -194,10 +201,12 @@ export default function GoogleCalendarButton() {
         client_id: CLIENT_ID,
         scope: SCOPES,
         callback: handleTokenResponse,
-        access_type: 'offline'
       });
 
-      tokenClient.requestAccessToken({ prompt: 'consent' });
+      tokenClient.requestAccessToken({ 
+        prompt: 'consent',
+        access_type: 'offline'
+      });
     } catch (error: any) {
       console.error('Auth error:', error);
       toast({
