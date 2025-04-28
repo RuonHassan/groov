@@ -3,13 +3,11 @@ import { useLocation } from 'wouter';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/lib/supabaseClient';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/AuthContext';
 
 export default function GoogleCalendarCallback() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { session } = useAuth();
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -31,7 +29,9 @@ export default function GoogleCalendarCallback() {
         return;
       }
 
-      // Check if user is authenticated
+      // Get session directly from Supabase
+      const session = supabase.auth.session();
+
       if (!session?.access_token) {
         toast({
           title: "Authentication Error",
@@ -82,7 +82,7 @@ export default function GoogleCalendarCallback() {
     };
 
     handleCallback();
-  }, [session]); // Add session to dependencies
+  }, []); // Remove session dependency since we're getting it directly
 
   return (
     <div className="flex items-center justify-center min-h-screen">
