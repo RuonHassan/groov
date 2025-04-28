@@ -29,13 +29,14 @@ export default function GoogleCalendarCallback() {
         return;
       }
 
-      // Get session directly from Supabase
-      const session = supabase.auth.session();
+      // Get session directly from Supabase (v2 method)
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      if (!session?.access_token) {
+      if (sessionError || !session) {
+        console.error('Error getting session:', sessionError);
         toast({
           title: "Authentication Error",
-          description: "Please log in to connect your calendar.",
+          description: sessionError?.message || "Could not retrieve user session. Please log in again.",
           variant: "destructive",
         });
         setLocation('/login');
