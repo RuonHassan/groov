@@ -6,6 +6,7 @@ import { useGoogleCalendar } from '@/contexts/GoogleCalendarContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
+import { useLocation } from 'wouter';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +28,7 @@ export default function GoogleCalendarButton() {
   const { isConnected, calendars } = useGoogleCalendar();
   const { session } = useAuth();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
   const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
@@ -106,8 +108,9 @@ export default function GoogleCalendarButton() {
       toast({ title: "Please wait", description: "Calendar API is still initializing..." });
       return;
     }
-    if (!session) {
+    if (!session?.user?.id) {
       toast({ title: "Not Logged In", description: "Please log in to connect your calendar.", variant: "destructive" });
+      setLocation('/login');
       return;
     }
 
