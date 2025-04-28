@@ -25,9 +25,23 @@ export default function GoogleCalendarButton() {
   const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
 
   const handleAuthClick = async () => {
+    console.log('Auth click handler started');
+    console.log('Session:', session);
+    console.log('Client ID:', CLIENT_ID);
+
     if (!session?.user?.id) {
       toast({ title: "Not Logged In", description: "Please log in to connect your calendar.", variant: "destructive" });
       setLocation('/login');
+      return;
+    }
+
+    if (!CLIENT_ID) {
+      console.error('Missing Google Client ID');
+      toast({
+        title: "Configuration Error",
+        description: "Google Calendar integration is not properly configured.",
+        variant: "destructive"
+      });
       return;
     }
 
@@ -38,6 +52,8 @@ export default function GoogleCalendarButton() {
         user_id: session.user.id,
         nonce: Math.random().toString(36).substring(2)
       });
+
+      console.log('Generated state:', state);
 
       // Store state in localStorage for verification
       localStorage.setItem('googleOAuthState', state);
@@ -52,8 +68,11 @@ export default function GoogleCalendarButton() {
       oauthUrl.searchParams.append('prompt', 'consent');
       oauthUrl.searchParams.append('state', state);
 
+      const finalUrl = oauthUrl.toString();
+      console.log('[GoogleCalendarButton] Attempting to redirect to:', finalUrl);
+
       // Redirect to Google OAuth
-      window.location.href = oauthUrl.toString();
+      window.location.href = finalUrl;
     } catch (error: any) {
       console.error('Auth error:', error);
       toast({
