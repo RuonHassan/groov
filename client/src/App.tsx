@@ -66,6 +66,11 @@ function Router() {
         </PrivateRoute>
       </Route>
 
+      {/* OAuth Callback routes */}
+      <Route path="/auth/google/callback">
+        <GoogleCalendarCallback />
+      </Route>
+
       {/* 404 route */}
       <Route>
         <NotFound />
