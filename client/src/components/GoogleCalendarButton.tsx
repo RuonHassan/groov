@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { CalendarClock, Check, MoreVertical, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -95,147 +95,52 @@ export default function GoogleCalendarButton() {
       });
     };
 
-    // Debug Google's OAuth implementation
-    const debugGoogleOAuth = () => {
-      if (window.google?.accounts?.oauth2) {
-        console.log('Google Identity Services OAuth API available');
-        
-        // Check if the OAuth library supports expected methods
-        const methods = [
-          'initTokenClient',
-          'hasGrantedAnyScope',
-          'revoke',
-        ];
-        
-        methods.forEach(method => {
-          if (typeof window.google.accounts.oauth2[method] === 'function') {
-            console.log(`OAuth method available: ${method}`);
-          } else {
-            console.warn(`OAuth method NOT available: ${method}`);
-          }
-        });
-      } else {
-        console.warn('Google Identity Services OAuth API not available');
-      }
-    };
-
     // Small delay to ensure scripts are loaded
     setTimeout(() => {
       initializeGapi();
-      debugGoogleOAuth();
     }, 100);
   }, []);
 
-  const handleTokenResponse = async (response: any) => {
-    if (response.error) {
-      console.error('OAuth error:', response);
-      toast({
-        title: "Authentication Error",
-        description: response.error || "Could not authenticate with Google Calendar",
-        variant: "destructive",
-      });
-      setIsLoading(false);
+  const handleAuthClick = async () => {
+    if (!isInitialized) {
+      toast({ title: "Please wait", description: "Calendar API is still initializing..." });
+      return;
+    }
+    if (!session) {
+      toast({ title: "Not Logged In", description: "Please log in to connect your calendar.", variant: "destructive" });
       return;
     }
 
+    setIsLoading(true);
     try {
-      console.log('Google Auth successful, fetching primary calendar info...');
-      
-      // More comprehensive logging of the response
-      console.log('Full response keys from Google OAuth:', Object.keys(response));
-      console.log('Received response from Google:', {
-        hasAccessToken: !!response.access_token,
-        hasRefreshToken: !!response.refresh_token,
-        expiresIn: response.expires_in,
-        tokenType: response.token_type,
-        scope: response.scope
+      // Generate state parameter with user ID
+      const state = JSON.stringify({
+        user_id: session.user.id,
+        nonce: Math.random().toString(36).substring(2)
       });
-      
-      const accessToken = response.access_token;
-      const expiresIn = response.expires_in;
-      const refreshToken = response.refresh_token || null;
-      
-      // Check if refresh token is missing
-      if (!refreshToken) {
-        console.warn('No refresh token received. This may cause access issues after token expiration.');
-        console.log('Authentication was successful but no refresh token was provided. You may need to revoke access and reconnect.');
-        
-        // Show a more helpful message to users
-        toast({
-          title: "Calendar Connected (Limited)",
-          description: "Calendar connected without long-term access. You may need to reconnect periodically.",
-          duration: 6000,
-        });
-        
-        // Suggest manual revocation if refresh token is not received
-        setTimeout(() => {
-          const shouldRevoke = window.confirm(
-            "For best results, please revoke previous access permissions and try again. Would you like to open Google Account permissions page now?"
-          );
-          
-          if (shouldRevoke) {
-            window.open("https://myaccount.google.com/permissions", "_blank");
-          }
-        }, 500);
-      }
 
-      // Set token temporarily to fetch calendar info
-      window.gapi.client.setToken({ access_token: accessToken });
+      // Store state in localStorage for verification
+      localStorage.setItem('googleOAuthState', state);
 
-      const calendarList = await window.gapi.client.calendar.calendarList.list({ maxResults: 10 });
-      const primaryCalendar = calendarList.result.items.find((cal: any) => cal.primary);
-      
-      if (!primaryCalendar) {
-          toast({ title: "Error", description: "Could not find primary Google Calendar.", variant: "destructive" });
-          setIsLoading(false);
-          return;
-      }
+      // Construct OAuth URL with all necessary parameters
+      const oauthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+      oauthUrl.searchParams.append('client_id', CLIENT_ID);
+      oauthUrl.searchParams.append('redirect_uri', `${window.location.origin}/auth/google/callback`);
+      oauthUrl.searchParams.append('response_type', 'code');
+      oauthUrl.searchParams.append('scope', SCOPES);
+      oauthUrl.searchParams.append('access_type', 'offline');
+      oauthUrl.searchParams.append('prompt', 'consent');
+      oauthUrl.searchParams.append('state', state);
 
-      console.log('Saving calendar connection to Supabase...');
-
-      // Calculate expiry timestamp
-      const now = Date.now();
-      const expiresAt = new Date(now + expiresIn * 1000).toISOString();
-
-      // Insert/Update the calendar connection in Supabase
-      const { data: savedConnection, error: supabaseError } = await supabase
-        .from('connected_calendars')
-        .upsert({
-          user_id: session?.user?.id, // Supabase user ID
-          provider: 'google',
-          calendar_id: primaryCalendar.id,
-          calendar_name: primaryCalendar.summary,
-          access_token: accessToken,
-          refresh_token: refreshToken,
-          token_expires_at: expiresAt,
-          is_primary: true,
-          is_enabled: true,
-        }, {
-          onConflict: 'user_id,provider'
-        });
-
-      if (supabaseError) {
-        throw new Error(supabaseError.message);
-      }
-
-      // Invalidate the React Query cache to refetch calendar data
-      await queryClient.invalidateQueries({ queryKey: ['connectedCalendars'] });
-
-      toast({
-        title: "Calendar Connected",
-        description: `Successfully connected ${primaryCalendar.summary}`,
-      });
-      
+      // Redirect to Google OAuth
+      window.location.href = oauthUrl.toString();
     } catch (error: any) {
-      console.error('Error processing token or saving to Supabase:', error);
+      console.error('Auth error:', error);
       toast({
-        title: "Connection Error",
-        description: error.message || "Could not save Google Calendar connection",
+        title: "Connection Failed",
+        description: error.message || "Could not connect to Google Calendar",
         variant: "destructive",
       });
-    } finally {
-      // Clear the temporary token
-      window.gapi.client.setToken(null);
       setIsLoading(false);
     }
   };
@@ -246,32 +151,6 @@ export default function GoogleCalendarButton() {
     try {
       setIsLoading(true);
       const calendar = calendars[0]; // Get the first calendar since we only support one for now
-
-      // First revoke the Google token
-      if (calendar.access_token) {
-        try {
-          console.log('Revoking Google access token...');
-          const response = await fetch(`https://oauth2.googleapis.com/revoke?token=${calendar.access_token}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded'
-            }
-          });
-          
-          if (response.ok) {
-            console.log('Successfully revoked Google token');
-          } else {
-            console.warn('Failed to revoke token:', await response.text());
-          }
-        } catch (error) {
-          console.error('Error revoking Google token:', error);
-        }
-      }
-
-      // Clear Google API token
-      if (window.gapi?.client?.getToken()) {
-        window.gapi.client.setToken(null);
-      }
 
       // Delete the calendar connection from Supabase
       const { error: deleteError } = await supabase
@@ -286,18 +165,9 @@ export default function GoogleCalendarButton() {
       // Invalidate the React Query cache to refetch calendar data
       await queryClient.invalidateQueries({ queryKey: ['connectedCalendars'] });
 
-      // Redirect user to Google Account permissions page
-      const shouldRevoke = window.confirm(
-        "To ensure you receive a refresh token on reconnection, please also remove access from your Google Account. Would you like to do this now?"
-      );
-      
-      if (shouldRevoke) {
-        window.open("https://myaccount.google.com/permissions", "_blank");
-      }
-
       toast({
         title: "Calendar Disconnected",
-        description: "Successfully disconnected Google Calendar. You can now reconnect to receive a refresh token.",
+        description: "Successfully disconnected Google Calendar.",
       });
     } catch (error: any) {
       console.error('Error deleting calendar connection:', error);
@@ -307,125 +177,6 @@ export default function GoogleCalendarButton() {
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Update the revokeGoogleToken function to be more thorough
-  const revokeGoogleToken = async () => {
-    if (!window.google?.accounts?.oauth2) {
-      console.warn('Google OAuth2 API not available');
-      return;
-    }
-    
-    try {
-      // Clear any existing token in GAPI
-      if (window.gapi?.client?.getToken()) {
-        const token = window.gapi.client.getToken().access_token;
-        
-        // Only proceed if we have a token to revoke
-        if (token) {
-          console.log('Revoking existing Google token');
-          
-          try {
-            // Revoke the token
-            const response = await fetch(`https://oauth2.googleapis.com/revoke?token=${token}`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-              }
-            });
-            
-            if (response.ok) {
-              console.log('Successfully revoked Google token');
-            } else {
-              console.warn('Failed to revoke token:', await response.text());
-              // If revocation fails, suggest manual revocation
-              const shouldRevoke = window.confirm(
-                "Unable to automatically revoke previous access. Would you like to manually remove access from your Google Account?"
-              );
-              
-              if (shouldRevoke) {
-                window.open("https://myaccount.google.com/permissions", "_blank");
-                return false; // Indicate that manual intervention is needed
-              }
-            }
-          } catch (error) {
-            console.error('Error revoking token:', error);
-            return false;
-          }
-        }
-        
-        // Clear the token from GAPI regardless of revoke success
-        window.gapi.client.setToken(null);
-      }
-      return true;
-    } catch (error) {
-      console.error('Error in revokeGoogleToken:', error);
-      return false;
-    }
-  };
-
-  const handleAuthClick = async () => {
-    if (!isInitialized) {
-      toast({ title: "Please wait", description: "Calendar API is still initializing..." });
-      return;
-    }
-    if (!session) {
-      toast({ title: "Not Logged In", description: "Please log in to connect your calendar.", variant: "destructive" });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      // First revoke any existing tokens to force a fresh auth
-      const revoked = await revokeGoogleToken();
-      
-      if (!revoked) {
-        // If token revocation failed or required manual intervention, stop here
-        setIsLoading(false);
-        return;
-      }
-      
-      // Define options with access_type and approval_prompt for the OAuth flow
-      const options = {
-        prompt: 'consent', // Force the consent screen to appear every time
-        access_type: 'offline', // Request a refresh token
-        include_granted_scopes: true, // Include previously granted scopes
-      };
-
-      // Convert options to URL search params for debugging
-      console.log('OAuth request options:', options);
-
-      // Google Identity Services token client configuration
-      const tokenClient = window.google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: handleTokenResponse,
-        error_callback: (err: any) => {
-          console.error('OAuth error during token request:', err);
-          toast({
-            title: "Authentication Error",
-            description: err.message || "Could not authenticate with Google",
-            variant: "destructive",
-          });
-          setIsLoading(false);
-        },
-        // Force select account for better user experience and to avoid consent caching
-        prompt: 'consent',
-        hint: '',
-        ux_mode: 'popup', // Use popup rather than redirect for better flow
-      });
-
-      // Request access token with options
-      tokenClient.requestAccessToken(options);
-    } catch (error: any) {
-      console.error('Auth error:', error);
-      toast({
-        title: "Connection Failed",
-        description: error.message || "Could not connect to Google Calendar",
-        variant: "destructive",
-      });
       setIsLoading(false);
     }
   };

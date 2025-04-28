@@ -16,6 +16,7 @@ import { WeekProvider } from "./contexts/WeekContext";
 import Layout from "@/components/Layout";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { GoogleCalendarProvider } from "./contexts/GoogleCalendarContext";
+import GoogleCalendarCallback from '@/components/GoogleCalendarCallback';
 
 // Component to protect routes
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
