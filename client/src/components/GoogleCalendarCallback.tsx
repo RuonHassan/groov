@@ -1,12 +1,11 @@
 import { useEffect } from 'react';
-import { useLocation, useNavigate } from 'wouter';
+import { useLocation } from 'wouter';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/lib/supabaseClient';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function GoogleCalendarCallback() {
-  const [, navigate] = useNavigate();
-  const [location] = useLocation();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -26,7 +25,7 @@ export default function GoogleCalendarCallback() {
           description: "OAuth state mismatch. Please try again.",
           variant: "destructive",
         });
-        navigate('/dashboard');
+        setLocation('/app');
         return;
       }
 
@@ -66,7 +65,7 @@ export default function GoogleCalendarCallback() {
       }
 
       // Redirect back to dashboard
-      navigate('/dashboard');
+      setLocation('/app');
     };
 
     handleCallback();
