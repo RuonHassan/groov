@@ -22,6 +22,7 @@ import { useTaskContext } from "@/contexts/TaskContext";
 import { X, Calendar, Clock, Palette, Trash2 } from "lucide-react";
 import { formatISO, parseISO, isValid } from 'date-fns';
 import { RangeTimePicker } from "@/components/ui/date-time-picker";
+import { ColorPicker } from "@/components/ui/color-picker";
 
 // Function to format Date object or ISO string into yyyy-MM-ddTHH:mm for datetime-local input
 const formatDateTimeLocal = (date: string | Date | null | undefined): string => {
@@ -56,7 +57,7 @@ const formatToISO = (date: Date | undefined | null): string | null => {
 const taskFormValidationSchema = z.object({
   title: z.string().min(1, { message: "Title is required" }),
   notes: z.string().optional().nullable(),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid color hex").optional().default("#5D2E8C"),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid color hex").optional().default("#B1C29E"),
   startTime: z.date().optional().nullable(),
   endTime: z.date().optional().nullable(),
 }).refine(data => {
@@ -90,7 +91,7 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
     defaultValues: {
       title: task?.title || "",
       notes: task?.notes || "",
-      color: task?.color || "#5D2E8C",
+      color: task?.color || "#B1C29E",
       startTime: task?.start_time ? parseISO(task.start_time) : (defaultStartTime ? parseISO(defaultStartTime) : null),
       endTime: task?.end_time ? parseISO(task.end_time) : (defaultEndTime ? parseISO(defaultEndTime) : null),
     },
@@ -110,7 +111,7 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
       form.reset({
         title: "",
         notes: "",
-        color: "#5D2E8C",
+        color: "#B1C29E",
         startTime: defaultStartTime ? parseISO(defaultStartTime) : null,
         endTime: defaultEndTime ? parseISO(defaultEndTime) : null,
       });
@@ -118,7 +119,7 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
       form.reset({
         title: "",
         notes: "",
-        color: "#5D2E8C",
+        color: "#B1C29E",
         startTime: null,
         endTime: null,
       });
@@ -206,11 +207,7 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
             <FormField control={form.control} name="color" render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input 
-                    type="color" 
-                    {...field} 
-                    className="h-10 w-full p-0 border-0 rounded-md" 
-                  />
+                  <ColorPicker value={field.value} onChange={field.onChange} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

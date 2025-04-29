@@ -346,12 +346,12 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                       if (isCompleted) {
                         taskClasses += " bg-gray-200 text-gray-500 border border-gray-300 cursor-default";
                       } else {
-                        const bgColor = isGoogleEvent ? '#7D2A4D' : (item.color || '#3b82f6');
+                        const bgColor = isGoogleEvent ? '#FFDCCC' : (item.color || '#3b82f6');
                         const textColor = isLightColor(bgColor) ? 'text-gray-900' : 'text-white';
                         taskClasses += ` ${textColor} hover:opacity-90 ${isGoogleEvent ? 'cursor-default' : 'cursor-pointer'}`;
                         
                         if (isGoogleEvent) {
-                          taskClasses += " border border-pink-800";
+                          taskClasses += " border border-[#FFDCCC]";
                         }
                       }
 
@@ -380,7 +380,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                           style={{
                             top: `${topPercent}%`,
                             height: `${Math.max(heightPercent, 5)}%`,
-                            backgroundColor: isCompleted ? undefined : (isGoogleEvent ? '#7D2A4D' : item.color || '#3b82f6'),
+                            backgroundColor: isCompleted ? undefined : (isGoogleEvent ? '#FFDCCC' : item.color || '#3b82f6'),
                             width: `calc(${width}% - 2px)`,
                             left: `${left}%`,
                             right: 'auto'
