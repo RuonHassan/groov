@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from './AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import type { ConnectedCalendar } from '@shared/schema';
+import { initializeGoogleApi } from '@/lib/googleApi';
 
 interface GoogleCalendarContextType {
   isConnected: boolean;
@@ -16,29 +17,29 @@ const GoogleCalendarContext = createContext<GoogleCalendarContextType | undefine
 
 // Function to refresh the access token
 const refreshAccessToken = async (calendar: ConnectedCalendar): Promise<ConnectedCalendar | null> => {
-  const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-  const CLIENT_SECRET = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
-
   if (!calendar.refresh_token) {
     console.error('No refresh token available for calendar:', calendar.calendar_id);
     return null;
   }
 
   try {
-    console.log('Attempting to refresh token using refresh_token');
-    // Request new access token using refresh token
-    const response = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        refresh_token: calendar.refresh_token,
-        grant_type: 'refresh_token',
-      }),
-    });
+    console.log('Attempting to refresh token using Edge Function');
+    // Call our Edge Function instead of Google directly
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-refresh`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({
+          calendar_id: calendar.id,
+          refresh_token: calendar.refresh_token
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -46,28 +47,8 @@ const refreshAccessToken = async (calendar: ConnectedCalendar): Promise<Connecte
       throw new Error(`Failed to refresh token: ${response.status} ${errorText}`);
     }
 
-    const data = await response.json();
-    console.log('Token refresh successful, expires_in:', data.expires_in);
-    
-    // Calculate new expiry time
-    const now = Date.now();
-    const expiresAt = new Date(now + data.expires_in * 1000).toISOString();
-
-    // Update the calendar in the database with new token
-    const { data: updatedCalendar, error: updateError } = await supabase
-      .from('connected_calendars')
-      .update({
-        access_token: data.access_token,
-        token_expires_at: expiresAt,
-      })
-      .eq('id', calendar.id)
-      .select()
-      .single();
-
-    if (updateError) {
-      throw updateError;
-    }
-
+    const updatedCalendar = await response.json();
+    console.log('Token refresh successful');
     return updatedCalendar;
   } catch (error) {
     console.error('Error refreshing token:', error);
@@ -97,55 +78,6 @@ const fetchConnectedCalendars = async (userId: string | undefined): Promise<Conn
 // Track initialization state
 let isInitializing = false;
 let isInitialized = false;
-
-// Initialize Google API client
-const initializeGoogleApi = async () => {
-  // If already initialized, return immediately
-  if (isInitialized) return;
-  
-  // If currently initializing, wait for it to complete
-  if (isInitializing) {
-    while (isInitializing) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    return;
-  }
-
-  try {
-    isInitializing = true;
-
-    const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
-    const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
-
-    if (!API_KEY) {
-      throw new Error('API Key is not set in environment variables');
-    }
-
-    if (!window.gapi) {
-      await new Promise((resolve) => {
-        const script = document.createElement('script');
-        script.src = 'https://apis.google.com/js/api.js';
-        script.onload = resolve;
-        document.body.appendChild(script);
-      });
-    }
-
-    if (!window.gapi.client) {
-      await new Promise((resolve) => window.gapi.load('client', resolve));
-    }
-
-    if (!window.gapi.client.calendar) {
-      await window.gapi.client.init({
-        apiKey: API_KEY,
-        discoveryDocs: [DISCOVERY_DOC],
-      });
-    }
-
-    isInitialized = true;
-  } finally {
-    isInitializing = false;
-  }
-};
 
 export function GoogleCalendarProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
