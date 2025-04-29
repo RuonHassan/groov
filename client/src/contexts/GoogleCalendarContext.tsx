@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from './AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import type { ConnectedCalendar } from '@shared/schema';
-import { initializeGoogleApi } from '@/lib/googleApi';
 
 interface GoogleCalendarContextType {
   isConnected: boolean;
@@ -24,14 +23,13 @@ const refreshAccessToken = async (calendar: ConnectedCalendar): Promise<Connecte
 
   try {
     console.log('Attempting to refresh token using Edge Function');
-    // Call our Edge Function instead of Google directly
     const response = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-refresh`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
           'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
         },
         body: JSON.stringify({
@@ -78,6 +76,55 @@ const fetchConnectedCalendars = async (userId: string | undefined): Promise<Conn
 // Track initialization state
 let isInitializing = false;
 let isInitialized = false;
+
+// Initialize Google API client
+const initializeGoogleApi = async () => {
+  // If already initialized, return immediately
+  if (isInitialized) return;
+  
+  // If currently initializing, wait for it to complete
+  if (isInitializing) {
+    while (isInitializing) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    return;
+  }
+
+  try {
+    isInitializing = true;
+
+    const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
+    const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
+
+    if (!API_KEY) {
+      throw new Error('API Key is not set in environment variables');
+    }
+
+    if (!window.gapi) {
+      await new Promise((resolve) => {
+        const script = document.createElement('script');
+        script.src = 'https://apis.google.com/js/api.js';
+        script.onload = resolve;
+        document.body.appendChild(script);
+      });
+    }
+
+    if (!window.gapi.client) {
+      await new Promise((resolve) => window.gapi.load('client', resolve));
+    }
+
+    if (!window.gapi.client.calendar) {
+      await window.gapi.client.init({
+        apiKey: API_KEY,
+        discoveryDocs: [DISCOVERY_DOC],
+      });
+    }
+
+    isInitialized = true;
+  } finally {
+    isInitializing = false;
+  }
+};
 
 export function GoogleCalendarProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
