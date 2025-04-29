@@ -31,25 +31,16 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
         side="bottom"
         align="center"
         alignOffset={0}
-        className="p-3 w-[360px] border rounded-xl shadow-lg"
+        className="p-2 w-[360px] border rounded-xl shadow-lg"
       >
-        <div className="flex gap-3">
+        <div className="flex gap-3.5">
           {COLORS.map((color) => (
             <SelectItem
               key={color.value}
               value={color.value}
-              className="p-0 m-0 data-[highlighted]:bg-transparent focus:bg-transparent hover:bg-transparent data-[state=checked]:bg-transparent"
+              className="p-0 m-0 w-[44px] h-[32px] rounded-md cursor-pointer relative data-[highlighted]:bg-transparent focus:bg-transparent hover:bg-transparent data-[state=checked]:bg-transparent [&>span]:hidden"
+              style={{ backgroundColor: color.value }}
             >
-              <div
-                className="w-[44px] h-[32px] rounded-md cursor-pointer relative"
-                style={{ backgroundColor: color.value }}
-              >
-                {value === color.value && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Check className="h-4 w-4 text-black" />
-                  </div>
-                )}
-              </div>
             </SelectItem>
           ))}
         </div>
