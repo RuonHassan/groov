@@ -8,11 +8,11 @@ import {
 } from "@/components/ui/select";
 
 const COLORS = [
-  { value: "#B7B1F2", label: "Purple" },
-  { value: "#FDB7EA", label: "Pink" },
-  { value: "#FFDCCC", label: "Peach" },
-  { value: "#FBF3B9", label: "Yellow" },
+  { value: "#F0EAD2", label: "Cream" },
+  { value: "#DDE5B6", label: "Pale Green" },
   { value: "#B1C29E", label: "Sage" },
+  { value: "#A98467", label: "Taupe" },
+  { value: "#6C584C", label: "Dark Brown" },
   { value: "#F0A04B", label: "Orange" },
 ];
 
