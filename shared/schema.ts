@@ -48,32 +48,8 @@ export const taskSchema = z.object({
 export type InsertTask = z.infer<typeof insertTaskSchema>; // Stays camelCase from pgTable def
 export type Task = z.infer<typeof taskSchema>; // Now reflects snake_case DB structure
 
-// Remove other schemas if they are no longer relevant
-// Or keep them if pomodoro/forest/users are still used
-// ... (Pomodoro, Forest, User schemas) ...
-
-export const pomodoroSessionSchema = z.object({
-  // ... other fields ...
-  start_time: z.string().datetime({ offset: true }), // snake_case
-  end_time: z.string().datetime({ offset: true }).nullable(), // snake_case
-  created_at: z.string().datetime({ offset: true }),
-  updated_at: z.string().datetime({ offset: true }),
-});
-
-export const forestTreeSchema = z.object({
-  // ... other fields ...
-  tree_type: z.string(), // snake_case
-  growth_stage: z.number(), // snake_case
-  planted_at: z.string().datetime({ offset: true }), // snake_case
-  created_at: z.string().datetime({ offset: true }),
-  updated_at: z.string().datetime({ offset: true }),
-});
-
 export const userSchema = z.object({
   // ... other fields ...
-  total_pomodoros: z.number(), // snake_case
-  total_trees: z.number(), // snake_case
-  streak_days: z.number(), // snake_case
   created_at: z.string().datetime({ offset: true }),
   updated_at: z.string().datetime({ offset: true }),
 });
@@ -106,4 +82,4 @@ export type InsertConnectedCalendar = z.infer<typeof insertConnectedCalendarSche
 
 
 // Type Aggregation (Optional but can be useful)
-export type AllSchemaTypes = Task | CalendarEvent | User | PomodoroSession | ForestTree | ConnectedCalendar;
+export type AllSchemaTypes = Task | CalendarEvent | User | ConnectedCalendar;

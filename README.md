@@ -2,7 +2,7 @@
 
 ## Overview
 
-Groov is a comprehensive productivity application inspired by the Getting Things Done (GTD) methodology, designed to help users organize, prioritize, and track tasks efficiently. It features a minimalist interface, task management, calendar integration (including Google Calendar sync), and a Pomodoro timer with gamification elements.
+Groov is a comprehensive productivity application inspired by the Getting Things Done (GTD) methodology, designed to help users organize, prioritize, and track tasks efficiently. It features a minimalist interface, task management, and calendar integration (including Google Calendar sync), all wrapped in a clean, modern UI.
 
 ## Technology Stack
 
@@ -24,10 +24,12 @@ Groov is a comprehensive productivity application inspired by the Getting Things
 *   **Icons:** Lucide Icons (`lucide-react`)
 *   **Charts:** Recharts
 
-### Backend (`/server`)
-*   **Framework:** Express.js
-*   **Database:** PostgreSQL (using Vercel Postgres)
+### Backend (`/server` & Supabase)
+*   **API Server:** Express.js
+*   **Database:** PostgreSQL (via Supabase or Vercel Postgres)
 *   **ORM:** Drizzle ORM
+*   **Authentication:** Supabase Auth
+*   **Serverless Functions:** Supabase Edge Functions
 *   **Schema Validation:** Zod
 *   **Google API Integration:** `google-auth-library`, `googleapis`
 
@@ -38,7 +40,6 @@ Groov is a comprehensive productivity application inspired by the Getting Things
 ### Tooling & Development
 *   **Database Migrations:** Drizzle Kit
 *   **Type Checking:** TypeScript (`tsc`)
-*   **Linters/Formatters:** (Assumed: ESLint, Prettier - Check `package.json` for specifics if needed)
 *   **Dev Server:** Vite HMR
 
 ## Project Structure
@@ -69,7 +70,8 @@ The project follows a monorepo-like structure with shared code:
 │   │   └── vite.ts         # Vite integration helpers (likely for dev)
 │   ├── shared/             # Code shared between frontend and backend
 │   │   └── schema.ts       # Drizzle schemas, Zod validation, TypeScript types
-│   ├── migrations/         # Drizzle ORM database migrations
+│   ├── supabase/           # Supabase configuration and Edge Functions
+│   │   └── functions/      # Serverless Edge Functions
 │   ├── sql/                # SQL scripts (if any)
 │   ├── .env                # Environment variables (client/server specific might exist)
 │   ├── .gitignore
@@ -85,27 +87,45 @@ The project follows a monorepo-like structure with shared code:
 ## Core Features
 
 ### 1. Task Management (GTD Inspired)
-*   **Task Creation & Editing:** Add tasks with titles, notes, colors, start/end times.
-*   **Status Tracking:** Although not strictly GTD statuses like "inbox" or "next" are defined in the current schema, tasks have `completed_at` timestamps, implying a completed state. The schema focuses more on timed tasks.
-*   **Properties:** Tasks include `id`, `title`, `notes`, `color`, `start_time`, `end_time`, `completed_at`.
+*   **Task Creation & Editing:** Add tasks with titles, notes, due dates, contexts, priority levels, and more
+*   **GTD Workflow:** Tasks follow the GTD methodology with statuses like Inbox, Next, Waiting, Someday, Projects, and Completed
+*   **Multiple Properties:**
+    *   Status: Inbox, Next, Waiting, Someday, Project, Completed
+    *   Context: Work, Home, Computer, Errands, etc.
+    *   Energy: High, Medium, Low
+    *   Priority: High, Medium, Low
+    *   Time: Estimated time to complete
+    *   Due Date: Optional deadline
 
 ### 2. Calendar Integration
-*   **Event Management:** Create, update, delete calendar events associated with the application.
-*   **Task Linking:** Associate calendar events with specific tasks (`taskId`).
-*   **Google Calendar Sync:** Functionality to connect and sync with Google Calendar (implied by `google-auth-library`, `googleapis`, and `connectedCalendarSchema`).
+*   **Event Management:** Create, update, delete calendar events
+*   **Task Linking:** Associate calendar events with specific tasks
+*   **Week View:** Intuitive weekly calendar view
 
-### 3. Pomodoro Timer & Forest Gamification
-*   **Focus Sessions:** Pomodoro timer to track focused work sessions.
-*   **Session Tracking:** Records Pomodoro sessions (`pomodoroSessionSchema`) including duration, status, start/end times.
-*   **Gamification:** "Plant" virtual trees (`forestTreeSchema`) upon completing Pomodoro sessions, potentially tracking growth stages and types.
-*   **User Stats:** Tracks user statistics like total pomodoros, trees, and streak days (`userSchema`).
+### 3. Google Calendar Sync
+*   **OAuth Authentication:** Secure connection to Google Calendar
+*   **Calendar Integration:** View and manage Google Calendar events
+*   **Event Synchronization:** See Google Calendar events alongside app events
+*   **Token Management:** Automatic refresh token handling for persistent access
+
+### 4. User Authentication
+*   **Supabase Auth:** Complete authentication system using Supabase
+*   **Email/Password:** Traditional login with email confirmation
+*   **Password Reset:** Secure password reset flow
+*   **User Profiles:** Extended user profiles with RLS protection
+*   **Session Management:** Persistent sessions with token refresh
+
+### 5. Smart Organization
+*   **Temporal Sectioning:** Tasks automatically organized into Today, Tomorrow, and Future sections
+*   **Context Filtering:** Filter tasks by context, energy level, or priority
+*   **Project Grouping:** Group related tasks as projects
 
 ## API Endpoints (`/server/routes.ts`)
 
 The backend provides a REST API under the `/api` prefix:
 
 ### Tasks
-*   `GET /api/tasks`: Get all tasks
+*   `GET /api/tasks`: Get all tasks (filtered to current user)
 *   `GET /api/tasks/:id`: Get a specific task
 *   `POST /api/tasks`: Create a new task
 *   `PATCH /api/tasks/:id`: Update a task
@@ -119,46 +139,94 @@ The backend provides a REST API under the `/api` prefix:
 *   `DELETE /api/calendar-events/:id`: Delete an event
 *   `GET /api/tasks/:taskId/calendar-events`: Get events for a specific task
 
-### Pomodoro Sessions (Expected based on schema/docs)
-*   `GET /api/users/:userId/pomodoro-sessions`: Get user's sessions
-*   `GET /api/pomodoro-sessions/:id`: Get a specific session
-*   `POST /api/pomodoro-sessions`: Create a new session
-*   `PATCH /api/pomodoro-sessions/:id`: Update a session
-*   `DELETE /api/pomodoro-sessions/:id`: Delete a session
+### Connected Calendars
+*   `GET /api/users/:userId/connected-calendars`: Get user's connected calendars
+*   `POST /api/connected-calendars`: Connect a new calendar
+*   `PATCH /api/connected-calendars/:id`: Update a connected calendar
+*   `DELETE /api/connected-calendars/:id`: Disconnect a calendar
 
-### Forest Trees (Expected based on schema/docs)
-*   `GET /api/users/:userId/forest-trees`: Get user's trees
-*   `POST /api/forest-trees`: Plant a new tree
-*   `PATCH /api/forest-trees/:id`: Update a tree
-*   `DELETE /api/forest-trees/:id`: Remove a tree
+## Supabase Edge Functions
 
-### Connected Calendars (Expected based on schema)
-*   CRUD endpoints for managing connected calendars (e.g., Google Calendar accounts). Likely includes routes for initiating OAuth flow.
+The application uses Supabase Edge Functions for serverless operations:
 
-### User Data (Expected based on schema)
-*   Endpoints for retrieving/updating user profile information and stats.
-
-*(Note: Verify exact Pomodoro, Forest, User, and Calendar Sync routes by checking the full `server/routes.ts` file)*
+### Google Calendar OAuth Flow
+*   `google-calendar-callback`: Handles OAuth callback and token storage
+*   `google-calendar-refresh`: Refreshes expired Google API tokens
 
 ## Data Models (`/shared/schema.ts`)
 
 Key data structures defined using Drizzle ORM and Zod:
 
-*   **Task:** `id`, `title`, `notes`, `color`, `start_time`, `end_time`, `completed_at`, `created_at`, `updated_at`
-*   **CalendarEvent:** *(Check `schema.ts` for exact fields - `insertCalendarEventSchema` is used in `routes.ts` but the table definition isn't shown in the provided context)*
-*   **PomodoroSession:** `id`, `userId`, `taskId`, `duration`, `status`, `start_time`, `end_time`, `created_at`, `updated_at`
-*   **ForestTree:** `id`, `userId`, `pomodoroSessionId`, `tree_type`, `growth_stage`, `planted_at`, `created_at`, `updated_at`
-*   **User:** `id`, `username`, `password` (hashed), `email`, `total_pomodoros`, `total_trees`, `streak_days`, `created_at`, `updated_at`
-*   **ConnectedCalendar:** `id`, `user_id`, `provider`, `calendar_id`, `calendar_name`, `access_token`, `refresh_token`, `token_expires_at`, `is_primary`, `is_enabled`, `created_at`, `last_synced_at`
+*   **Task:** `id`, `title`, `notes`, `status`, `context`, `energy`, `priority`, `time`, `dueDate`, `completedAt`, `createdAt`, `updatedAt`
+*   **CalendarEvent:** `id`, `title`, `description`, `start`, `end`, `taskId`, `createdAt`, `updatedAt`
+*   **ConnectedCalendar:** `id`, `userId`, `provider`, `calendarId`, `calendarName`, `accessToken`, `refreshToken`, `tokenExpiresAt`, `isPrimary`, `isEnabled`, `createdAt`, `lastSyncedAt`
 
 *(Note: Field names in the database often use `snake_case` as shown in the Zod schemas, while application code might use `camelCase`)*
+
+## Authentication System
+
+The application uses Supabase Authentication for user management:
+
+### Features
+*   **Email/Password Authentication:** Traditional login flow
+*   **Email Verification:** Optional verification emails
+*   **Password Reset:** Secure password reset flow
+*   **Session Management:** JWT-based sessions
+*   **Row-Level Security:** Data protected by user-based policies
+
+### Auth Flow
+1. User registers with email/password
+2. Email verification (if enabled) 
+3. User logs in and receives JWT
+4. Auth context maintains session state in app
+5. JWT is used for API requests to both Express and Supabase
+6. Supabase RLS enforces data access based on user ID
+
+## Google Calendar Integration
+
+The application connects to Google Calendar using OAuth 2.0:
+
+### OAuth Flow
+1. User clicks "Add Calendar" button
+2. App redirects to Google consent screen
+3. User authorizes the application
+4. Google redirects back with authorization code
+5. Supabase Edge Function exchanges code for tokens
+6. Tokens stored securely in database
+7. Access token used for Calendar API requests
+8. Refresh token used to maintain access
 
 ## Getting Started
 
 ### Prerequisites
-*   Node.js (check `.nvmrc` or specify version if known)
+*   Node.js (v16+)
 *   npm
-*   Access to a PostgreSQL database
+*   Supabase account
+
+### Setting Up Supabase
+1.  Create a new Supabase project
+2.  Run the SQL scripts in the `sql/` directory to set up tables and policies
+3.  Configure Authentication providers
+4.  Create Edge Functions using the code in `supabase/functions/`
+
+### Environment Variables
+1.  Create a `.env` file in the root directory (or potentially separate ones in `/client` and `/server` if needed).
+2.  Add the required environment variables. Minimally, you'll need:
+    ```env
+    # Supabase Configuration
+    VITE_SUPABASE_URL=your-supabase-url
+    VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+
+    # Google OAuth Configuration
+    VITE_GOOGLE_CLIENT_ID=your-google-client-id
+    VITE_GOOGLE_CLIENT_SECRET=your-google-client-secret
+    VITE_GOOGLE_API_KEY=your-google-api-key
+    VITE_REDIRECT_URI=http://localhost:5173/auth/google/callback
+
+    # Database (if using separate Postgres instance)
+    DATABASE_URL=your-postgres-connection-string
+    ```
+    *Consult `.env.example` if it exists, or check the code (`drizzle.config.ts`, `server/storage.ts`, API client) for required variables.*
 
 ### Installation
 1.  Clone the repository:
@@ -171,27 +239,8 @@ Key data structures defined using Drizzle ORM and Zod:
     npm install
     ```
 
-### Environment Variables
-1.  Create a `.env` file in the root directory (or potentially separate ones in `/client` and `/server` if needed).
-2.  Add the required environment variables. Minimally, you'll need:
-    ```env
-    # For Drizzle ORM / Backend Database Connection
-    DATABASE_URL="postgresql://user:password@host:port/database?sslmode=require"
-
-    # For Google Calendar Integration (obtain from Google Cloud Console)
-    GOOGLE_CLIENT_ID="..."
-    GOOGLE_CLIENT_SECRET="..."
-    GOOGLE_REDIRECT_URI="..." # e.g., http://localhost:5173/auth/google/callback
-
-    # Add any other variables required by client or server (e.g., Supabase keys if used for Auth)
-    # VITE_SUPABASE_URL="..."
-    # VITE_SUPABASE_ANON_KEY="..."
-    ```
-    *Consult `.env.example` if it exists, or check the code (`drizzle.config.ts`, `server/storage.ts`, API client) for required variables.*
-
 ### Database Setup
-1.  Ensure your PostgreSQL database is running and accessible via the `DATABASE_URL`.
-2.  Apply database migrations:
+1.  Push schema to database:
     ```bash
     npm run db:push
     ```
@@ -210,11 +259,37 @@ Key data structures defined using Drizzle ORM and Zod:
 
 ## Deployment
 
-*   The presence of `vercel.json` suggests potential deployment to Vercel.
-*   The `.replit` and `replit.nix` files indicate configuration for Replit deployment.
+### Vercel Deployment
+1.  Push your code to GitHub
+2.  Create a new project in Vercel
+3.  Connect to your GitHub repository
+4.  Configure environment variables
+5.  Deploy
 
-Configuration details for deployment platforms would depend on the specific setup within those files. Generally, deployment involves:
-1.  Setting up environment variables on the hosting platform.
-2.  Configuring the build command (`npm run build`).
-3.  Configuring the start command (likely involves running the Node.js server, e.g., `node server/index.js` after building).
-4.  Ensuring the database is accessible from the deployment environment. 
+### Supabase Setup for Production
+1.  Configure appropriate redirect URLs for authentication
+2.  Set up production Edge Functions
+3.  Update environment variables with production URLs
+
+## Security Considerations
+
+### Row-Level Security
+All database tables implement Row-Level Security to ensure users can only access their own data:
+```sql
+CREATE POLICY "Users can view their own tasks" 
+  ON public.tasks 
+  FOR SELECT 
+  USING (auth.uid() = user_id);
+```
+
+### API Protection
+All API endpoints verify authentication and apply proper authorization before allowing access to resources.
+
+### Token Storage
+OAuth tokens are stored securely in the database and are never exposed to the client directly.
+
+## Contributing
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+This project is licensed under the MIT License - see the LICENSE file for details. 

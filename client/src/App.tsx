@@ -7,7 +7,6 @@ import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/LandingPage";
 import Dashboard from "@/pages/Dashboard";
 import CalendarPage from "@/pages/CalendarPage";
-import PomodoroPage from "@/pages/PomodoroPage";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
@@ -55,13 +54,6 @@ function Router() {
         <PrivateRoute>
           <Layout>
             <CalendarPage />
-          </Layout>
-        </PrivateRoute>
-      </Route>
-      <Route path="/pomodoro">
-        <PrivateRoute>
-          <Layout>
-            <PomodoroPage />
           </Layout>
         </PrivateRoute>
       </Route>
