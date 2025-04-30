@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO, isWithinInterval, isValid, getHours, getMinutes, getDay } from 'date-fns';
+import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO, isWithinInterval, isValid, getHours, getMinutes, getDay, addWeeks, subWeeks } from 'date-fns';
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Task } from "@shared/schema";
@@ -61,7 +61,7 @@ interface CalendarProps {
 }
 
 export default function Calendar({ tasks, onRefetch, scheduledTaskId }: CalendarProps) {
-  const { currentDate } = useWeek();
+  const { currentDate, goToPreviousWeek, goToNextWeek } = useWeek();
   const { toast } = useToast();
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
@@ -71,13 +71,14 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   const { isConnected, calendars, fetchEvents } = useGoogleCalendar();
   const [googleEvents, setGoogleEvents] = useState<GoogleEvent[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date()); // State for current time
+  const [mobileOffset, setMobileOffset] = useState(0); // 0 for Mon-Wed, 1 for Wed-Fri
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); 
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
 
   const allWeekDays = Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
   
-  // Get visible days based on screen size and current day
+  // Get visible days based on screen size and mobile offset
   const getVisibleDays = () => {
     // On desktop, show all weekdays (Mon-Fri)
     if (window.innerWidth >= 768) {
@@ -87,27 +88,43 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
       });
     }
     
-    // On mobile, show 3 days based on current day
-    const today = new Date();
-    const dayOfWeek = getDay(today);
-    
-    // If it's Monday, show Mon-Wed
-    if (dayOfWeek === 1) {
-      return allWeekDays.slice(0, 3);
+    // On mobile, show 3 days based on offset
+    // Using fixed ranges: Mon-Wed or Wed-Fri
+    if (mobileOffset === 0) {
+      return allWeekDays.slice(0, 3); // Mon, Tue, Wed
+    } else {
+      return allWeekDays.slice(2, 5); // Wed, Thu, Fri
     }
-    // If it's Tuesday, show Tue-Thu
-    else if (dayOfWeek === 2) {
-      return allWeekDays.slice(1, 4);
-    }
-    // For all other days (Wed-Fri), show Wed-Fri
+  };
+
+  // Mobile navigation functions
+  const goToPreviousThreeDays = () => {
+    // If we're showing Wed-Fri, go back to Mon-Wed of the same week
+    if (mobileOffset === 1) {
+      setMobileOffset(0);
+    } 
+    // If we're showing Mon-Wed, go to Wed-Fri of the previous week
     else {
-      return allWeekDays.slice(2, 5);
+      goToPreviousWeek();
+      setMobileOffset(1);
+    }
+  };
+
+  const goToNextThreeDays = () => {
+    // If we're showing Mon-Wed, go to Wed-Fri of the same week
+    if (mobileOffset === 0) {
+      setMobileOffset(1);
+    } 
+    // If we're showing Wed-Fri, go to Mon-Wed of the next week
+    else {
+      goToNextWeek();
+      setMobileOffset(0);
     }
   };
 
   const [visibleDays, setVisibleDays] = useState(getVisibleDays());
 
-  // Update visible days when window is resized or date changes
+  // Update visible days when window is resized, date changes, or mobile offset changes
   useEffect(() => {
     const handleResize = () => {
       setVisibleDays(getVisibleDays());
@@ -117,7 +134,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
     handleResize(); // Initial call
 
     return () => window.removeEventListener('resize', handleResize);
-  }, [currentDate]); // Re-run when date changes
+  }, [currentDate, mobileOffset]); // Re-run when date or mobile offset changes
 
   // Effect to update current time every minute
   useEffect(() => {
@@ -260,11 +277,30 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   };
 
   return (
-    <div className="flex flex-col">
+    <div className="w-full flex flex-col">
+      {/* Calendar header with navigation */}
       <div className="flex items-center justify-between p-2 relative">
         <span className="font-semibold text-xl">
           {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
         </span>
+        <div className="md:hidden flex items-center space-x-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={goToPreviousThreeDays}
+            className="p-1"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={goToNextThreeDays}
+            className="p-1"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
         <div className="absolute bottom-0 left-0 right-0">
           <div className="mx-1 h-[2.5px] bg-gray-800 rounded-full" />
         </div>
@@ -408,6 +444,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
         </div>
       </div>
 
+      {/* Task and event modals */}
       <AddTaskModal 
         open={showTaskModal}
         onClose={() => {
@@ -421,14 +458,16 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
         defaultEndTime={editingTask ? undefined : defaultTaskTimes.end_time}
       />
 
-      <GoogleEventModal
-        open={showEventModal}
-        onClose={() => {
-          setShowEventModal(false);
-          setSelectedEvent(null);
-        }}
-        event={selectedEvent}
-      />
+      {showEventModal && selectedEvent && (
+        <GoogleEventModal
+          open={showEventModal}
+          onClose={() => {
+            setShowEventModal(false);
+            setSelectedEvent(null);
+          }}
+          event={selectedEvent}
+        />
+      )}
     </div>
   );
 }

@@ -111,7 +111,7 @@ export default function Header() {
                     variant="ghost"
                     size="icon"
                     asChild
-                    className={`rounded-full ${isOnCalendar ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
+                    className={`rounded-full ${isOnCalendar ? 'bg-gray-200 text-black' : 'text-gray-700 hover:bg-gray-100'}`}
                   >
                     <Link to={isOnCalendar ? "/app" : "/calendar"}>
                       <Calendar className="h-5 w-5" strokeWidth={3} />
