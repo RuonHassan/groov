@@ -239,10 +239,6 @@ export default function TaskGrid() {
         <div className="h-8" />
         {renderSection("Someday", organizedTasks.someday, "someday", true)}
         <NewTaskCard />
-        {/* On mobile, completed section is part of the main scroll */}
-        <div className="md:hidden">
-          {renderSection(`Completed`, organizedTasks.completed, "completed", true)}
-        </div>
       </div>
       {/* On desktop, completed section is sticky at bottom */}
       <div className="hidden md:block sticky bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-sm z-10">

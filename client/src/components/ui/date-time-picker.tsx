@@ -61,10 +61,12 @@ export function RangeTimePicker({
     e.stopPropagation();
     
     if (type === 'date') {
-      setDateOpen(true);
+      // Toggle date popover, close time popover
+      setDateOpen(prev => !prev);
       setTimeOpen(false);
     } else {
-      setTimeOpen(true);
+      // Toggle time popover, close date popover
+      setTimeOpen(prev => !prev);
       setDateOpen(false);
     }
   };
@@ -94,7 +96,6 @@ export function RangeTimePicker({
         </PopoverTrigger>
         <PopoverContent 
           className="w-auto p-0 z-[9999]" 
-          align="start"
           onPointerDownOutside={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -151,7 +152,6 @@ export function RangeTimePicker({
         </PopoverTrigger>
         <PopoverContent 
           className="w-auto p-3 z-[9999]" 
-          align="start"
           onPointerDownOutside={(e) => {
             e.preventDefault();
             e.stopPropagation();
