@@ -1,21 +1,23 @@
-# Groov - Technical Documentation
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# TaskFlow GTD - Product Documentation
 
 ## Overview
 
-Groov is a comprehensive productivity application built on the Getting Things Done (GTD) methodology. It helps users organize, prioritize, and track tasks efficiently with a minimalist and intuitive interface. The application includes task management and calendar integration with secure authentication and data protection.
+TaskFlow GTD is a comprehensive productivity application built on the Getting Things Done (GTD) methodology. It helps users organize, prioritize, and track tasks efficiently with a minimalist and intuitive interface. The application includes task management and calendar integration with a focus on simplicity and effectiveness.
 
 ## Technology Stack
 
 - **Frontend**: React with TypeScript
-- **Backend**: Express.js API with Supabase services
-- **State Management**: React Query for server state, React Context for local state
+- **Backend**: Express.js
+- **State Management**: React Query
 - **UI Components**: Shadcn UI with Tailwind CSS
 - **Routing**: Wouter
 - **Form Handling**: React Hook Form with Zod validation
-- **Authentication**: Supabase Auth with JWT
-- **Database**: PostgreSQL (via Supabase or Vercel Postgres)
-- **Serverless Functions**: Supabase Edge Functions
-- **OAuth Integration**: Google OAuth 2.0
+- **Data Storage**: In-memory storage with future PostgreSQL integration
 
 ## Application Structure
 
@@ -36,43 +38,16 @@ The server provides a REST API for data operations:
 
 - `/server/index.ts`: Express server setup
 - `/server/routes.ts`: API endpoint definitions
-- `/server/storage.ts`: Database interaction logic
+- `/server/storage.ts`: Data storage implementation
 - `/server/vite.ts`: Vite configuration for development
 
-### Supabase Integration
-
-The application uses Supabase for multiple services:
-
-- **Authentication**: Email/password login with JWT
-- **Database**: PostgreSQL with Row-Level Security
-- **Edge Functions**: Serverless functions for OAuth and other operations
-
-### Shared Code and SQL
+### Shared Code
 
 - `/shared/schema.ts`: Contains shared data models and validation schemas
-- `/sql/user_table.sql`: User profile table definition with RLS policies
-- `/sql/task_rls.sql`: Task table RLS policies and constraints
-- `/supabase/functions/`: Edge Function implementations
 
 ## Core Features
 
-### 1. Authentication System
-
-The application uses Supabase Authentication with the following features:
-
-- **Registration & Login**: Email/password authentication
-- **JWT-based Sessions**: Secure token-based authentication
-- **Password Reset**: Secure flow for resetting passwords
-- **Protected Routes**: Client-side route protection
-- **User Profiles**: Extended profiles linked to auth.users
-
-Implementation details:
-- `AuthContext` provides authentication state throughout the app
-- `AuthProvider` manages authentication state and Supabase auth operations
-- `PrivateRoute` component restricts access to authenticated routes
-- Automatic session persistence and token refresh
-
-### 2. Task Management
+### 1. Task Management
 
 Tasks in the application follow the GTD methodology with the following statuses:
 
@@ -95,11 +70,8 @@ Tasks contain the following properties:
 - `dueDate`: Optional deadline
 - `completedAt`: Completion timestamp
 - `createdAt`: Creation timestamp
-- `user_id`: User ID from Supabase Auth (for Row-Level Security)
 
-Task data is protected by Row-Level Security policies ensuring users can only access their own tasks.
-
-### 3. Calendar Integration
+### 2. Calendar Integration
 
 The calendar feature allows users to:
 - Schedule tasks at specific time slots
@@ -115,79 +87,46 @@ Calendar events contain:
 - `endTime`: End date and time
 - `taskId`: Optional associated task
 - `createdAt`: Creation timestamp
-- `user_id`: User ID from Supabase Auth (for Row-Level Security)
 
-### 4. Google Calendar Integration
+### 3. Google Calendar Sync
 
-The application integrates with Google Calendar using OAuth 2.0:
+The application can sync with Google Calendar, providing:
+- OAuth authentication flow
+- Two-way synchronization of events
+- Multiple calendar connections
+- Automatic update of connected calendars
 
-#### OAuth Flow
-1. User initiates connection via UI
-2. Application redirects to Google consent screen
-3. Google redirects back with authorization code
-4. Supabase Edge Function (`google-calendar-callback`) exchanges code for tokens
-5. Access and refresh tokens stored in database
-6. Tokens used to fetch calendar data via Google Calendar API
+## API Endpoints
 
-#### Token Management
-- Access tokens expire after 1 hour
-- Refresh tokens automatically renewed via Edge Function (`google-calendar-refresh`)
-- Tokens stored securely in database with Row-Level Security
+### Task Management
 
-#### Implementation Details
-- `GoogleCalendarContext` manages calendar connection state
-- `GoogleCalendarButton` initiates OAuth flow
-- `GoogleCalendarCallback` handles OAuth redirect
-- Client-side Google API integration fetches events
+- `GET /api/tasks`: Get all tasks
+- `GET /api/tasks/:id`: Get a specific task
+- `POST /api/tasks`: Create a new task
+- `PATCH /api/tasks/:id`: Update a task
+- `DELETE /api/tasks/:id`: Delete a task
 
-## Database Schema and Security
+### Calendar Events
 
-### Row-Level Security (RLS)
+- `GET /api/calendar-events`: Get all calendar events
+- `GET /api/calendar-events/:id`: Get a specific event
+- `POST /api/calendar-events`: Create a new event
+- `PATCH /api/calendar-events/:id`: Update an event
+- `DELETE /api/calendar-events/:id`: Delete an event
 
-All tables implement Row-Level Security to ensure data isolation:
+### Connected Calendars
 
-```sql
-ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
+- `GET /api/users/:userId/connected-calendars`: Get user's connected calendars
+- `POST /api/connected-calendars`: Connect a new calendar
+- `PATCH /api/connected-calendars/:id`: Update a connected calendar
+- `DELETE /api/connected-calendars/:id`: Disconnect a calendar
 
-CREATE POLICY "Users can view their own tasks" 
-  ON public.tasks 
-  FOR SELECT 
-  USING (auth.uid() = user_id);
+## Data Models
 
-CREATE POLICY "Users can insert their own tasks" 
-  ON public.tasks 
-  FOR INSERT 
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own tasks" 
-  ON public.tasks 
-  FOR UPDATE 
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete their own tasks" 
-  ON public.tasks 
-  FOR DELETE 
-  USING (auth.uid() = user_id);
-```
-
-### Key Data Models
-
-#### User Profile
+### Task
 
 ```typescript
-type User = {
-  id: string;           // UUID from auth.users
-  username: string;     // Username for display
-  email: string;        // Email address
-  createdAt: string;    // Creation timestamp
-  updatedAt: string;    // Last update timestamp
-};
-```
-
-#### Task
-
-```typescript
-type Task = {
+export type Task = {
   id: number;
   title: string;
   notes: string | null;
@@ -199,15 +138,13 @@ type Task = {
   dueDate: string | null;
   completedAt: string | null;
   createdAt: string;
-  updatedAt: string;
-  user_id: string;      // UUID from auth.users
 };
 ```
 
-#### Calendar Event
+### Calendar Event
 
 ```typescript
-type CalendarEvent = {
+export type CalendarEvent = {
   id: number;
   title: string;
   description: string | null;
@@ -215,17 +152,15 @@ type CalendarEvent = {
   endTime: string;
   taskId: number | null;
   createdAt: string;
-  updatedAt: string;
-  user_id: string;      // UUID from auth.users
 };
 ```
 
-#### Connected Calendar
+### Connected Calendar
 
 ```typescript
-type ConnectedCalendar = {
+export type ConnectedCalendar = {
   id: number;
-  user_id: string;      // UUID from auth.users
+  user_id: number;
   provider: 'google' | 'outlook' | string;
   calendar_id: string;
   calendar_name: string;
@@ -239,117 +174,80 @@ type ConnectedCalendar = {
 };
 ```
 
-## API Endpoints
+### User
 
-### Authentication
-- Handled by Supabase Auth API
+```typescript
+export type User = {
+  id: number;
+  username: string;
+  password: string; // Hashed
+  email: string | null;
+  createdAt: string;
+};
+```
 
-### Task Management
-- `GET /api/tasks`: Get all tasks (filtered to current user via RLS)
-- `GET /api/tasks/:id`: Get a specific task
-- `POST /api/tasks`: Create a new task
-- `PATCH /api/tasks/:id`: Update a task
-- `DELETE /api/tasks/:id`: Delete a task
+## UI Components
 
-### Calendar Events
-- `GET /api/calendar-events`: Get all calendar events
-- `GET /api/calendar-events/:id`: Get a specific event
-- `POST /api/calendar-events`: Create a new event
-- `PATCH /api/calendar-events/:id`: Update an event
-- `DELETE /api/calendar-events/:id`: Delete an event
+### Main Navigation
 
-### Connected Calendars
-- `GET /api/users/:userId/connected-calendars`: Get user's connected calendars
-- `POST /api/connected-calendars`: Connect a new calendar
-- `PATCH /api/connected-calendars/:id`: Update a connected calendar
-- `DELETE /api/connected-calendars/:id`: Disconnect a calendar
+- **Header**: Contains app title and other main navigation options
+- **Sidebar**: Provides access to different views and contexts
 
-## Supabase Edge Functions
+### Task Views
 
-### Google Calendar OAuth Integration
-- **Function**: `google-calendar-callback`
-- **Purpose**: Handles OAuth code exchange and token storage
-- **Inputs**: Authorization code and state from Google OAuth redirect
-- **Process**: Exchanges code for tokens, fetches primary calendar info, stores in database
+- **Dashboard**: Overview of tasks and upcoming calendar events
+- **Task Grid**: Main task management interface with filtering and sorting options
+- **Task Card**: Individual task display with drag-and-drop functionality
+- **Add Task Modal**: Form for creating and editing tasks
 
-### Token Refresh
-- **Function**: `google-calendar-refresh`
-- **Purpose**: Refreshes expired Google API tokens
-- **Inputs**: Calendar ID and refresh token
-- **Process**: Requests new access token from Google, updates database
+### Calendar Components
 
-## Context System
+- **Weekly Calendar**: 7-day view with hourly time slots
+- **Calendar Event Form**: Create and edit calendar events
+- **Task Connection**: Associate calendar events with tasks
 
-The application uses React Context for state management:
+## State Management
+
+The application uses a combination of React Query for server state and React Context for UI state:
+
+### Task Context
+
+Provides task-related state and operations:
+- Current tasks list
+- Filtering options (status, context, energy, etc.)
+- Sorting preferences
+- CRUD operations
 
 ### Authentication Context
-- **File**: `client/src/contexts/AuthContext.tsx`
-- **Purpose**: Manages authentication state
-- **Key Functions**:
-  - `signInWithEmail`: Authenticates user with email/password
-  - `signUpWithEmail`: Registers new user
-  - `signOut`: Logs out current user
-- **State**: Current user, session, loading state
 
-### Google Calendar Context
-- **File**: `client/src/contexts/GoogleCalendarContext.tsx`
-- **Purpose**: Manages Google Calendar connection
-- **Key Functions**:
-  - `fetchEvents`: Retrieves events from Google Calendar API
-- **State**: Connection status, calendars, loading state, errors
+Handles user authentication and profile:
+- Current user
+- Login/logout functionality
+- User preferences
 
 ### Week Context
-- **File**: `client/src/contexts/WeekContext.tsx`
-- **Purpose**: Manages calendar view state
-- **Key Functions**:
-  - `goToPreviousWeek`: Navigate to previous week
-  - `goToNextWeek`: Navigate to next week
-- **State**: Current date for calendar view
 
-## Security Considerations
+Manages calendar view state:
+- Current week being viewed
+- Week navigation
+- Date calculations
 
-### Authentication Security
-- JWT-based authentication with Supabase Auth
-- Automatic token refresh
-- Secure password reset flow
-- Email verification support
+## Workflows
 
-### Data Security
-- Row-Level Security policies on all tables
-- User data isolation at the database level
-- Server-side validation for all inputs
-- Client-side form validation with Zod
+### Task Management Flow
 
-### API Security
-- JWT validation for all API requests
-- CORS protection
-- Rate limiting on authentication endpoints
+1. User creates a task via the Add Task button
+2. Task is added to the inbox
+3. User processes the task by assigning status, context, and other properties
+4. Task moves to appropriate list (next actions, waiting, etc.)
+5. User completes the task, moving it to completed status
 
-### OAuth Security
-- Secure state parameter validation
-- Tokens stored securely in database (not client-side)
-- Automatic token refresh without exposing refresh tokens to client
+### Calendar Planning Flow
 
-## Deployment
-
-### Vercel Deployment
-- Static frontend deployed on Vercel
-- API routes served as serverless functions
-
-### Supabase Configuration
-- Authentication settings for production
-- Database migrations and RLS policies
-- Edge Functions configuration
-
-## Development Guidelines
-
-- Follow the existing component structure and naming conventions
-- Use Tailwind CSS for styling with shadcn/ui components
-- Implement form validation with Zod schemas
-- Use React Query for data fetching and mutations
-- Ensure all database tables have appropriate RLS policies
-- Test authentication flows thoroughly
-- Secure all API endpoints with proper authorization
+1. User selects a time slot in the calendar
+2. User creates a calendar event, optionally linking it to a task
+3. Event appears in the calendar view
+4. User receives reminders for upcoming events
 
 ## Future Enhancements
 
@@ -368,11 +266,6 @@ The application uses React Context for state management:
 - Implement form validation with Zod schemas
 - Use React Query for data fetching and mutations
 - Write descriptive commit messages
-- Add proper TSDoc comments for functions and components
-
-## Deployment
-
-The application is configured to deploy on Vercel or Replit, with appropriate configuration files for each platform. 
 - Add proper TSDoc comments for functions and components
 
 ## Deployment
