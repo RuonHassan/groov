@@ -50,6 +50,11 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        'groov-navy': '#1a1f36',
+        'groov-purple': '#7c3aed',
+        'groov-blue': '#3b82f6',
+        'groov-light': '#f3f4f6',
+        'groov-gray': '#6b7280',
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -65,10 +70,41 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: 0 },
         },
+        float: {
+          '0%, 100%': { 
+            transform: 'translateY(0px)',
+            animationTimingFunction: 'ease-in-out'
+          },
+          '50%': { 
+            transform: 'translateY(-25px)',
+            animationTimingFunction: 'ease-in-out'
+          }
+        },
+        gradient: {
+          '0%, 100%': {
+            backgroundSize: '200% 200%',
+            backgroundPosition: 'left center'
+          },
+          '50%': {
+            backgroundSize: '200% 200%',
+            backgroundPosition: 'right center'
+          }
+        }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "float": "float 3s infinite",
+        "gradient": "gradient 8s ease infinite",
+      },
+      backgroundImage: {
+        'hero-gradient': 'linear-gradient(-45deg, #7c3aed, #3b82f6, #7c3aed, #3b82f6)',
+      },
+      backgroundSize: {
+        'gradient-size': '400% 400%',
+      },
+      backdropBlur: {
+        'sm': '4px',
       },
     },
   },
