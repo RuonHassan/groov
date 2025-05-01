@@ -35,7 +35,7 @@ export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-white">
         {/* Header */}
-        <header className="bg-gray-900 py-10">
+        <header className="bg-gray-900 py-8">
           <div className="container mx-auto px-4">
           </div>
         </header>
