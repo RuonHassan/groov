@@ -34,11 +34,6 @@ export default function LandingPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
-        {/* Header */}
-        <header className="bg-gray-900 py-8">
-          <div className="container mx-auto px-4">
-          </div>
-        </header>
 
         {/* Hero Section */}
       <section className="relative overflow-hidden min-h-[90vh] flex items-center">
