@@ -42,7 +42,7 @@ export default function LoginPage() {
         <img 
           src="/groov.png" 
           alt="Groov Logo" 
-          className="h-12 w-auto mb-8 cursor-pointer"
+          className="h-24 w-auto mb-8 cursor-pointer"
         />
       </Link>
 

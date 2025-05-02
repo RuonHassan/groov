@@ -34,6 +34,30 @@ export default function LandingPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
+      {/* Header */}
+      <header className="bg-gray-900 text-white py-4">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-between items-center">
+            <img 
+              src="/groov.png" 
+              alt="Groov Logo" 
+              className="h-8 invert"
+            />
+            <div className="flex gap-4">
+              <Link href="/login">
+                <Button variant="link" className="text-white no-underline">
+                  Login
+                </Button>
+              </Link>
+              <Link href="/register">
+                <Button variant="secondary" className="bg-white text-gray-900 hover:bg-white hover:text-gray-900">
+                  Sign Up
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </header>
 
         {/* Hero Section */}
       <section className="relative overflow-hidden min-h-[90vh] flex items-center">
@@ -104,28 +128,23 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               {
-                icon: "📝",
                 title: "Simple Task Management",
                 description: "Create, organize, and track tasks with a clean interface designed for efficiency."
               },
               {
-                icon: "✅",
                 title: "Satisfying Completions",
                 description: "Experience the satisfaction of checking off tasks with delightful micro-interactions."
               },
               {
-                icon: "📅",
                 title: "Calendar Integration",
                 description: "Seamlessly sync with Google Calendar to manage tasks and events in one place."
               },
               {
-                icon: "👥",
                 title: "Team Collaboration",
                 description: "Share tasks and projects with team members to coordinate efficiently."
               }
             ].map((feature, index) => (
               <div key={index} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 hover:-translate-y-1">
-                <div className="text-4xl mb-4">{feature.icon}</div>
                 <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
                 <p className="text-gray-600">{feature.description}</p>
               </div>
