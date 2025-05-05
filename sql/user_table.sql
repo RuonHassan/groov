@@ -3,6 +3,10 @@ CREATE TABLE IF NOT EXISTS public.users (
   id UUID REFERENCES auth.users(id) PRIMARY KEY,
   username TEXT UNIQUE,
   email TEXT UNIQUE,
+  calendar_sync_enabled BOOLEAN DEFAULT false,
+  default_calendar_id INT4 DEFAULT NULL,
+  default_task_color TEXT DEFAULT NULL,
+  default_gcal_color TEXT DEFAULT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
 );
@@ -30,8 +34,24 @@ CREATE POLICY "New users can insert their own user data."
 CREATE OR REPLACE FUNCTION public.handle_new_user() 
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.users (id, username, email)
-  VALUES (NEW.id, SPLIT_PART(NEW.email, '@', 1), NEW.email);
+  INSERT INTO public.users (
+    id, 
+    username, 
+    email,
+    calendar_sync_enabled,
+    default_calendar_id,
+    default_task_color,
+    default_gcal_color
+  )
+  VALUES (
+    NEW.id, 
+    SPLIT_PART(NEW.email, '@', 1), 
+    NEW.email,
+    false,
+    NULL,
+    NULL,
+    NULL
+  );
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
