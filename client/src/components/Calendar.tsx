@@ -118,6 +118,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   const [longPressTimeout, setLongPressTimeout] = useState<NodeJS.Timeout | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragGhost, setDragGhost] = useState<HTMLElement | null>(null);
+  const [dragGhostPosition, setDragGhostPosition] = useState<{ x: number; y: number } | null>(null);
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); 
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
@@ -347,60 +348,80 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   };
 
   // Create and manage drag ghost element
-  const createDragGhost = (task: Task, color: string) => {
+  const createDragGhost = (task: Task, color: string, x: number, y: number) => {
+    removeDragGhost(); // Clean up any existing ghost
+
     const ghost = document.createElement('div');
-    ghost.className = 'fixed pointer-events-none z-50 rounded shadow-lg';
-    ghost.style.width = '200px';
-    ghost.style.height = '32px';
-    ghost.style.backgroundColor = color;
-    ghost.style.padding = '4px 8px';
-    ghost.style.fontSize = '12px';
-    ghost.style.fontWeight = '500';
-    ghost.style.color = isLightColor(color) ? '#111' : '#fff';
-    ghost.style.opacity = '0.9';
-    ghost.style.transform = 'translate(-50%, -50%)';
-    ghost.style.position = 'fixed'; // Ensure it's fixed position
-    ghost.style.zIndex = '9999'; // Ensure it's above everything
+    ghost.style.cssText = `
+      position: fixed;
+      left: 0;
+      top: 0;
+      transform: translate(${x}px, ${y}px);
+      width: 200px;
+      height: 32px;
+      background-color: ${color};
+      color: ${isLightColor(color) ? '#111' : '#fff'};
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      opacity: 0.9;
+      pointer-events: none;
+      z-index: 9999;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      display: flex;
+      align-items: center;
+      font-family: system-ui, -apple-system, sans-serif;
+      will-change: transform;
+      -webkit-transform: translate(${x}px, ${y}px);
+      -webkit-backface-visibility: hidden;
+    `;
     ghost.textContent = task.title;
     document.body.appendChild(ghost);
-    return ghost;
+    setDragGhost(ghost);
+    setDragGhostPosition({ x, y });
   };
 
   const updateDragGhostPosition = (x: number, y: number) => {
-    if (dragGhost) {
-      // Use pageX/pageY coordinates for better mobile positioning
-      dragGhost.style.left = `${x}px`;
-      dragGhost.style.top = `${y}px`;
+    if (dragGhost && dragGhostPosition) {
+      dragGhost.style.transform = `translate(${x}px, ${y}px)`;
+      dragGhost.style.webkitTransform = `translate(${x}px, ${y}px)`;
+      setDragGhostPosition({ x, y });
     }
   };
 
   const removeDragGhost = () => {
     if (dragGhost) {
-      document.body.removeChild(dragGhost);
+      dragGhost.remove();
       setDragGhost(null);
+      setDragGhostPosition(null);
     }
   };
 
   // Handle long press to start dragging
   const handleTouchStart = (e: React.TouchEvent, task: Task, color: string) => {
     if (task.completed_at) return;
-    
-    // Prevent text selection
     e.preventDefault();
+    e.stopPropagation();
+    
+    const touch = e.touches[0];
+    setTouchStartY(touch.pageY);
     
     const timer = setTimeout(() => {
       setTouchDragTask(task);
-      setTouchStartY(e.touches[0].pageY); // Use pageY instead of clientY
       setIsDragging(true);
       
-      // Add visual feedback
+      // Add visual feedback to original task
       const element = e.currentTarget as HTMLElement;
       element.style.opacity = '0.5';
 
-      // Create and position drag ghost
-      const ghost = createDragGhost(task, color);
-      setDragGhost(ghost);
-      updateDragGhostPosition(e.touches[0].pageX, e.touches[0].pageY);
+      // Create ghost at touch position with offset to be visible above finger
+      createDragGhost(
+        task,
+        color,
+        touch.pageX,
+        touch.pageY - 50 // Offset upward to be visible above finger
+      );
     }, 500);
 
     setLongPressTimeout(timer);
@@ -409,10 +430,14 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchDragTask || !isDragging) return;
     e.preventDefault();
+    e.stopPropagation();
 
     const touch = e.touches[0];
-    updateDragGhostPosition(touch.pageX, touch.pageY);
+    
+    // Update ghost position with the same upward offset
+    updateDragGhostPosition(touch.pageX, touch.pageY - 50);
 
+    // Handle time slot highlighting
     const elementsAtPoint = document.elementsFromPoint(touch.clientX, touch.clientY);
     const timeSlotElement = elementsAtPoint.find(el => el.hasAttribute('data-hour')) as HTMLElement;
 
@@ -434,7 +459,6 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
       setLongPressTimeout(null);
     }
 
-    // Remove drag ghost
     removeDragGhost();
 
     if (!touchDragTask || !isDragging) return;
@@ -489,13 +513,22 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
     setDragOverSlot(null);
   };
 
+  // Clean up on unmount or when drag is cancelled
+  useEffect(() => {
+    return () => {
+      if (longPressTimeout) {
+        clearTimeout(longPressTimeout);
+      }
+      removeDragGhost();
+    };
+  }, []);
+
   // Cancel drag on scroll
   useEffect(() => {
     const handleScroll = () => {
       if (touchDragTask) {
         removeDragGhost();
         setTouchDragTask(null);
-        setTouchStartY(null);
         setIsDragging(false);
         setDragOverSlot(null);
         
@@ -510,7 +543,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
     window.addEventListener('scroll', handleScroll, true);
     return () => {
       window.removeEventListener('scroll', handleScroll, true);
-      removeDragGhost(); // Clean up ghost on unmount
+      removeDragGhost();
     };
   }, [touchDragTask]);
 
