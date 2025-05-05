@@ -155,25 +155,18 @@ export default function SettingsPage() {
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Default Colors</CardTitle>
-          <CardDescription>
-            Choose default colors for new tasks and calendar events
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label>Default Task Color</Label>
             <ColorPicker value={tempTaskColor} onChange={handleTaskColorChange} />
-            <p className="text-sm text-gray-500">
-              This color will be used for new tasks by default
-            </p>
+            
           </div>
 
           <div className="space-y-2">
             <Label>Default Google Calendar Event Color</Label>
             <ColorPicker value={tempGcalColor} onChange={handleGcalColorChange} />
-            <p className="text-sm text-gray-500">
-              This color will be used to display Google Calendar events
-            </p>
+           
           </div>
         </CardContent>
         <CardFooter className="flex justify-between">

@@ -78,6 +78,44 @@ Tasks contain the following properties (derived from `shared/schema.ts`):
 - **Secure Login/Registration**: Uses Supabase Auth for user management.
 - **Data Isolation**: Each user's data (e.g., tasks) is secured using PostgreSQL Row Level Security based on their authenticated user ID.
 
+### 4. User Settings
+
+The application includes a dedicated settings page that allows users to customize their experience:
+
+- **Color Preferences**:
+  - Default Task Color: Users can choose from a predefined palette of colors (Cream, Pale Green, Sage, Taupe, Dark Brown, Orange) that will be applied to new tasks by default
+  - Default Google Calendar Event Color: Customize how integrated Google Calendar events appear in the calendar view
+  - Color changes are persisted in the database and applied immediately across the application
+
+The settings are stored in the users table with the following fields:
+- `default_task_color`: The hex color code for new tasks (e.g., "#6C584C")
+- `default_gcal_color`: The hex color code for Google Calendar events (e.g., "#B1C29E")
+
+### User Settings API
+
+- `GET /api/users/:id/settings`: Get user settings
+- `PATCH /api/users/:id/settings`: Update user settings
+
+### Settings Components
+
+- **SettingsPage**: Main settings interface with color pickers and save/reset functionality
+- **ColorPicker**: Reusable component for selecting colors from a predefined palette
+- **Card**: Shadcn UI component used to group related settings
+
+### Color Palette
+
+The application uses a consistent color palette across tasks and calendar events:
+```typescript
+const COLORS = [
+  { value: "#F0EAD2", label: "Cream" },
+  { value: "#DDE5B6", label: "Pale Green" },
+  { value: "#B1C29E", label: "Sage" },
+  { value: "#A98467", label: "Taupe" },
+  { value: "#6C584C", label: "Dark Brown" },
+  { value: "#F0A04B", label: "Orange" }
+];
+```
+
 ## API Endpoints / Data Fetching
 
 Data interaction (CRUD operations for tasks, fetching calendar connection info) is primarily handled via:

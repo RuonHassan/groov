@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 // Use updated Task and InsertTask types which include start_time/end_time
 import { Task, InsertTask } from "@shared/schema"; 
 import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface TaskContextType {
   tasks: Task[];
@@ -22,17 +23,22 @@ const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
 export function TaskProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [sortOrder, setSortOrder] = useState("startTime");
   
-  // Fetch tasks query - Fetches snake_case, maps to camelCase Task type?
-  // Check if Task type definition needs update or if mapping happens automatically
+  // Fetch tasks query - Now depends on user auth state
   const { 
     data: tasks = [], 
     isLoading, 
     error 
   } = useQuery<Task[], Error>({
-    queryKey: ['tasks'],
+    queryKey: ['tasks', user?.id], // Add user.id to queryKey
     queryFn: async () => {
+      // Don't fetch if no user
+      if (!user) {
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
@@ -45,6 +51,9 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       
       return data || [];
     },
+    retry: 3, // Add retry logic
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+    enabled: !!user, // Only run query when user is available
   });
 
   // Add task mutation: Accepts snake_case payload
