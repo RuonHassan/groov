@@ -359,6 +359,8 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
     ghost.style.color = isLightColor(color) ? '#111' : '#fff';
     ghost.style.opacity = '0.9';
     ghost.style.transform = 'translate(-50%, -50%)';
+    ghost.style.position = 'fixed'; // Ensure it's fixed position
+    ghost.style.zIndex = '9999'; // Ensure it's above everything
     ghost.textContent = task.title;
     document.body.appendChild(ghost);
     return ghost;
@@ -366,6 +368,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
 
   const updateDragGhostPosition = (x: number, y: number) => {
     if (dragGhost) {
+      // Use pageX/pageY coordinates for better mobile positioning
       dragGhost.style.left = `${x}px`;
       dragGhost.style.top = `${y}px`;
     }
@@ -381,23 +384,23 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   // Handle long press to start dragging
   const handleTouchStart = (e: React.TouchEvent, task: Task, color: string) => {
     if (task.completed_at) return;
-
+    
     // Prevent text selection
     e.preventDefault();
     
     const timer = setTimeout(() => {
       setTouchDragTask(task);
-      setTouchStartY(e.touches[0].clientY);
+      setTouchStartY(e.touches[0].pageY); // Use pageY instead of clientY
       setIsDragging(true);
       
       // Add visual feedback
       const element = e.currentTarget as HTMLElement;
       element.style.opacity = '0.5';
 
-      // Create drag ghost
+      // Create and position drag ghost
       const ghost = createDragGhost(task, color);
       setDragGhost(ghost);
-      updateDragGhostPosition(e.touches[0].clientX, e.touches[0].clientY);
+      updateDragGhostPosition(e.touches[0].pageX, e.touches[0].pageY);
     }, 500);
 
     setLongPressTimeout(timer);
@@ -408,7 +411,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
     e.preventDefault();
 
     const touch = e.touches[0];
-    updateDragGhostPosition(touch.clientX, touch.clientY);
+    updateDragGhostPosition(touch.pageX, touch.pageY);
 
     const elementsAtPoint = document.elementsFromPoint(touch.clientX, touch.clientY);
     const timeSlotElement = elementsAtPoint.find(el => el.hasAttribute('data-hour')) as HTMLElement;
@@ -638,13 +641,11 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                       className={`absolute top-0 left-0 right-0 h-1/2 hover:bg-blue-50 transition-colors ${
                         dragOverSlot === `${day.toISOString()}-${slot.hour}-${slot.minute}-0` ? 'bg-blue-100' : ''
                       }`}
-                      onMouseEnter={(e) => e.stopPropagation()}
                     />
                     <div 
                       className={`absolute bottom-0 left-0 right-0 h-1/2 hover:bg-blue-50 transition-colors ${
                         dragOverSlot === `${day.toISOString()}-${slot.hour}-${slot.minute}-15` ? 'bg-blue-100' : ''
                       }`}
-                      onMouseEnter={(e) => e.stopPropagation()}
                     />
                     {timeIndicator}
                     {itemsInSlot.map((item, index, array) => {
