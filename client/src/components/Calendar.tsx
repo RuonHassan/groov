@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO, isWithinInterval, isValid, getHours, getMinutes, getDay, addWeeks, subWeeks } from 'date-fns';
+import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO, isWithinInterval, isValid, getHours, getMinutes, getDay, addWeeks, subWeeks, addMinutes } from 'date-fns';
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Task } from "@shared/schema";
@@ -10,6 +10,7 @@ import AddTaskModal from './AddTaskModal';
 import GoogleEventModal from './GoogleEventModal';
 import { useGoogleCalendar } from '@/contexts/GoogleCalendarContext';
 import { useAuth } from "@/contexts/AuthContext";
+import { useTaskContext } from "@/contexts/TaskContext";
 
 // Current time indicator calculation constants
 const CALENDAR_START_HOUR = 8;
@@ -61,6 +62,40 @@ interface CalendarProps {
   scheduledTaskId?: number | null;
 }
 
+// Helper function to round a date to the nearest 15 minutes
+const roundToNearest15Minutes = (date: Date): Date => {
+  const minutes = date.getMinutes();
+  const remainder = minutes % 15;
+  const roundedMinutes = remainder < 8 ? minutes - remainder : minutes + (15 - remainder);
+  const newDate = new Date(date);
+  newDate.setMinutes(roundedMinutes);
+  return newDate;
+};
+
+// Helper function to calculate task position from drag event
+const calculateTaskPosition = (event: DragEvent, timeSlotElement: HTMLElement, date: Date): { startTime: Date, endTime: Date } | null => {
+  const rect = timeSlotElement.getBoundingClientRect();
+  const relativeY = event.clientY - rect.top;
+  const percentageInSlot = relativeY / rect.height;
+  
+  // Calculate if we're in the first or second 15-minute block
+  const isFirstBlock = percentageInSlot < 0.5;
+  
+  // Get the base time from the time slot
+  const hour = parseInt(timeSlotElement.dataset.hour || "0");
+  const slotMinute = parseInt(timeSlotElement.dataset.minute || "0");
+  
+  // Create the new start time
+  const startTime = new Date(date);
+  startTime.setHours(hour, slotMinute + (isFirstBlock ? 0 : 15));
+  
+  // End time is 30 minutes after start time
+  const endTime = new Date(startTime);
+  endTime.setMinutes(endTime.getMinutes() + 30);
+  
+  return { startTime, endTime };
+};
+
 export default function Calendar({ tasks, onRefetch, scheduledTaskId }: CalendarProps) {
   const { currentDate, goToPreviousWeek, goToNextWeek } = useWeek();
   const { toast } = useToast();
@@ -75,6 +110,9 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   const [mobileOffset, setMobileOffset] = useState(0); // 0 for Mon-Wed, 1 for Wed-Fri
   const { user } = useAuth();
   const [defaultGcalColor, setDefaultGcalColor] = useState("#B1C29E");
+  const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
+  const { updateTask } = useTaskContext();
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); 
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
@@ -379,11 +417,64 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                 return (
                   <div
                     key={day.toISOString() + slot.formatted}
-                    className="border-b border-r border-gray-100 h-8 relative cursor-pointer hover:bg-blue-50 transition-colors"
+                    className="border-b border-r border-gray-100 h-8 relative cursor-pointer transition-colors"
                     onClick={() => handleTimeSlotClick(day, slot)}
-                  >
-                    {timeIndicator}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      // Calculate if we're in the top or bottom half of the 30-min slot
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const relativeY = e.clientY - rect.top;
+                      const isTopHalf = relativeY < rect.height / 2;
+                      
+                      setDragOverSlot(`${day.toISOString()}-${slot.hour}-${slot.minute}-${isTopHalf ? '0' : '15'}`);
+                    }}
+                    onDragLeave={() => setDragOverSlot(null)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragOverSlot(null);
+                      if (!draggedTask) return;
 
+                      const newTimes = calculateTaskPosition(e.nativeEvent, e.currentTarget, day);
+                      if (!newTimes) return;
+
+                      // Update the task with new times
+                      updateTask(draggedTask.id, {
+                        start_time: newTimes.startTime.toISOString(),
+                        end_time: newTimes.endTime.toISOString()
+                      }).then(() => {
+                        toast({
+                          title: "Task rescheduled",
+                          description: `"${draggedTask.title}" has been moved to ${format(newTimes.startTime, 'h:mm a')}`
+                        });
+                        if (onRefetch) onRefetch();
+                      }).catch((error) => {
+                        console.error("Failed to update task:", error);
+                        toast({
+                          title: "Error",
+                          description: "Failed to reschedule task",
+                          variant: "destructive"
+                        });
+                      });
+
+                      setDraggedTask(null);
+                    }}
+                    data-hour={slot.hour}
+                    data-minute={slot.minute}
+                  >
+                    {/* Split the slot into two 15-minute sections */}
+                    <div 
+                      className={`absolute top-0 left-0 right-0 h-1/2 hover:bg-blue-50 transition-colors ${
+                        dragOverSlot === `${day.toISOString()}-${slot.hour}-${slot.minute}-0` ? 'bg-blue-100' : ''
+                      }`}
+                      onMouseEnter={(e) => e.stopPropagation()}
+                    />
+                    <div 
+                      className={`absolute bottom-0 left-0 right-0 h-1/2 hover:bg-blue-50 transition-colors ${
+                        dragOverSlot === `${day.toISOString()}-${slot.hour}-${slot.minute}-15` ? 'bg-blue-100' : ''
+                      }`}
+                      onMouseEnter={(e) => e.stopPropagation()}
+                    />
+                    {timeIndicator}
                     {itemsInSlot.map((item, index, array) => {
                       const isGoogleEvent = 'summary' in item;
                       const title = isGoogleEvent ? item.summary : item.title;
@@ -448,6 +539,39 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                             right: 'auto',
                             borderWidth: '1px',
                             borderStyle: 'solid'
+                          }}
+                          draggable={!isGoogleEvent && !isCompleted}
+                          onDragStart={(e) => {
+                            if (isGoogleEvent) return;
+                            e.stopPropagation();
+                            setDraggedTask(item as Task);
+
+                            // Clone the current element for the drag image
+                            const originalElement = e.currentTarget;
+                            const dragImage = originalElement.cloneNode(true) as HTMLElement;
+                            
+                            // Set up the ghost image container with fixed dimensions
+                            dragImage.style.position = 'absolute';
+                            dragImage.style.top = '-1000px';
+                            dragImage.style.width = '200px'; // Fixed width to match task card
+                            dragImage.style.height = '32px'; // Fixed height to match time slot
+                            dragImage.style.backgroundColor = bgColor || '#3b82f6';
+                            dragImage.style.borderRadius = '4px';
+                            dragImage.style.padding = '4px 8px';
+                            dragImage.style.opacity = '0.9';
+                            dragImage.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                            dragImage.style.pointerEvents = 'none';
+                            dragImage.style.transform = 'none';
+                            dragImage.style.left = '0';
+                            
+                            document.body.appendChild(dragImage);
+                            e.dataTransfer.setDragImage(dragImage, 100, 16); // Center horizontally and vertically
+                            setTimeout(() => document.body.removeChild(dragImage), 0);
+                          }}
+                          onDragEnd={() => {
+                            if (isGoogleEvent) return;
+                            setDraggedTask(null);
+                            setDragOverSlot(null);
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
