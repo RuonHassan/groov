@@ -113,6 +113,10 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
   const { updateTask } = useTaskContext();
+  const [touchDragTask, setTouchDragTask] = useState<Task | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [longPressTimeout, setLongPressTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); 
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
@@ -341,6 +345,121 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
     setShowEventModal(true);
   };
 
+  // Handle long press to start dragging
+  const handleTouchStart = (e: React.TouchEvent, task: Task) => {
+    if (task.completed_at) return; // Don't allow dragging completed tasks
+    
+    const timer = setTimeout(() => {
+      setTouchDragTask(task);
+      setTouchStartY(e.touches[0].clientY);
+      setIsDragging(true);
+      // Add visual feedback
+      const element = e.currentTarget as HTMLElement;
+      element.style.opacity = '0.5';
+    }, 500); // 500ms long press
+
+    setLongPressTimeout(timer);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchDragTask || !isDragging) return;
+    e.preventDefault(); // Prevent scrolling while dragging
+
+    const touch = e.touches[0];
+    const elementsAtPoint = document.elementsFromPoint(touch.clientX, touch.clientY);
+    const timeSlotElement = elementsAtPoint.find(el => el.hasAttribute('data-hour')) as HTMLElement;
+
+    if (timeSlotElement) {
+      const rect = timeSlotElement.getBoundingClientRect();
+      const relativeY = touch.clientY - rect.top;
+      const isTopHalf = relativeY < rect.height / 2;
+      const hour = parseInt(timeSlotElement.dataset.hour || "0");
+      const minute = parseInt(timeSlotElement.dataset.minute || "0");
+      const day = new Date(timeSlotElement.dataset.date || "");
+
+      setDragOverSlot(`${day.toISOString()}-${hour}-${minute}-${isTopHalf ? '0' : '15'}`);
+    }
+  };
+
+  const handleTouchEnd = async (e: React.TouchEvent) => {
+    if (longPressTimeout) {
+      clearTimeout(longPressTimeout);
+      setLongPressTimeout(null);
+    }
+
+    if (!touchDragTask || !isDragging) return;
+
+    const touch = e.changedTouches[0];
+    const elementsAtPoint = document.elementsFromPoint(touch.clientX, touch.clientY);
+    const timeSlotElement = elementsAtPoint.find(el => el.hasAttribute('data-hour')) as HTMLElement;
+
+    if (timeSlotElement) {
+      const hour = parseInt(timeSlotElement.dataset.hour || "0");
+      const minute = parseInt(timeSlotElement.dataset.minute || "0");
+      const day = new Date(timeSlotElement.dataset.date || "");
+      const rect = timeSlotElement.getBoundingClientRect();
+      const relativeY = touch.clientY - rect.top;
+      const isTopHalf = relativeY < rect.height / 2;
+
+      const startTime = new Date(day);
+      startTime.setHours(hour, minute + (isTopHalf ? 0 : 15));
+      const endTime = new Date(startTime);
+      endTime.setMinutes(endTime.getMinutes() + 30);
+
+      try {
+        await updateTask(touchDragTask.id, {
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString()
+        });
+
+        toast({
+          title: "Task rescheduled",
+          description: `"${touchDragTask.title}" has been moved to ${format(startTime, 'h:mm a')}`
+        });
+        if (onRefetch) onRefetch();
+      } catch (error) {
+        console.error("Failed to update task:", error);
+        toast({
+          title: "Error",
+          description: "Failed to reschedule task",
+          variant: "destructive"
+        });
+      }
+    }
+
+    // Reset the dragged element's opacity
+    const taskCards = document.querySelectorAll('.task-card');
+    taskCards.forEach((el: Element) => {
+      (el as HTMLElement).style.opacity = '1';
+    });
+
+    setTouchDragTask(null);
+    setTouchStartY(null);
+    setIsDragging(false);
+    setDragOverSlot(null);
+  };
+
+  // Cancel drag on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      if (touchDragTask) {
+        setTouchDragTask(null);
+        setTouchStartY(null);
+        setIsDragging(false);
+        setDragOverSlot(null);
+        
+        // Reset opacity of all task cards
+        const taskCards = document.querySelectorAll('.task-card');
+        taskCards.forEach((el: Element) => {
+          (el as HTMLElement).style.opacity = '1';
+        });
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, true);
+    return () => window.removeEventListener('scroll', handleScroll, true);
+  }, [touchDragTask]);
+
   return (
     <div className="w-full flex flex-col">
       {/* Calendar header with navigation */}
@@ -417,15 +536,16 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                 return (
                   <div
                     key={day.toISOString() + slot.formatted}
-                    className="border-b border-r border-gray-100 h-8 relative cursor-pointer transition-colors"
+                    className={`border-b border-r border-gray-100 h-8 relative cursor-pointer transition-colors ${
+                      dragOverSlot === `${day.toISOString()}-${slot.hour}-${slot.minute}-0` || 
+                      dragOverSlot === `${day.toISOString()}-${slot.hour}-${slot.minute}-15` ? 'bg-blue-100' : ''
+                    }`}
                     onClick={() => handleTimeSlotClick(day, slot)}
                     onDragOver={(e) => {
                       e.preventDefault();
-                      // Calculate if we're in the top or bottom half of the 30-min slot
                       const rect = e.currentTarget.getBoundingClientRect();
                       const relativeY = e.clientY - rect.top;
                       const isTopHalf = relativeY < rect.height / 2;
-                      
                       setDragOverSlot(`${day.toISOString()}-${slot.hour}-${slot.minute}-${isTopHalf ? '0' : '15'}`);
                     }}
                     onDragLeave={() => setDragOverSlot(null)}
@@ -460,6 +580,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                     }}
                     data-hour={slot.hour}
                     data-minute={slot.minute}
+                    data-date={day.toISOString()}
                   >
                     {/* Split the slot into two 15-minute sections */}
                     <div 
@@ -528,7 +649,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                       return (
                         <div
                           key={isGoogleEvent ? item.id : item.id.toString()}
-                          className={taskClasses}
+                          className={`${taskClasses} task-card`}
                           style={{
                             top: `${topPercent}%`,
                             height: `${Math.max(heightPercent, 5)}%`,
@@ -538,9 +659,13 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                             left: `${left}%`,
                             right: 'auto',
                             borderWidth: '1px',
-                            borderStyle: 'solid'
+                            borderStyle: 'solid',
+                            touchAction: 'none' // Prevent scrolling while dragging
                           }}
                           draggable={!isGoogleEvent && !isCompleted}
+                          onTouchStart={(e) => !isGoogleEvent && handleTouchStart(e, item as Task)}
+                          onTouchMove={handleTouchMove}
+                          onTouchEnd={handleTouchEnd}
                           onDragStart={(e) => {
                             if (isGoogleEvent) return;
                             e.stopPropagation();
