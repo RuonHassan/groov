@@ -27,7 +27,7 @@ export default function SettingsPage() {
         const { data, error } = await supabase
           .from('users')
           .select('default_task_color, default_gcal_color')
-          .eq('user_id', user.id)
+          .eq('id', user.id)
           .single();
 
         if (error) throw error;
@@ -74,7 +74,7 @@ export default function SettingsPage() {
           default_task_color: tempTaskColor,
           default_gcal_color: tempGcalColor
         })
-        .eq('user_id', user.id);
+        .eq('id', user.id);
 
       if (error) throw error;
 
@@ -109,7 +109,7 @@ export default function SettingsPage() {
           default_task_color: null,
           default_gcal_color: null
         })
-        .eq('user_id', user.id);
+        .eq('id', user.id);
 
       if (error) throw error;
 

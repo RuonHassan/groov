@@ -195,7 +195,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
         const { data, error } = await supabase
           .from('users')
           .select('default_gcal_color')
-          .eq('user_id', user.id)
+          .eq('id', user.id)
           .single();
 
         if (error) throw error;
