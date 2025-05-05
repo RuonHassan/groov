@@ -52,26 +52,29 @@ BEGIN
     END IF;
 END $$;
 
--- Enable RLS
+-- Enable RLS if not already enabled
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
 -- Recreate policies
 DROP POLICY IF EXISTS "Users can view their own user data" ON public.users;
 DROP POLICY IF EXISTS "Users can update their own user data" ON public.users;
 DROP POLICY IF EXISTS "New users can insert their own user data" ON public.users;
+DROP POLICY IF EXISTS "Public users are viewable" ON public.users;
 
-CREATE POLICY "Users can view their own user data" 
+-- Allow public read access to basic user info
+CREATE POLICY "Public users are viewable" 
   ON public.users 
   FOR SELECT 
-  TO authenticated
-  USING (id = auth.uid());
+  USING (true);
 
+-- Allow authenticated users to update their own data
 CREATE POLICY "Users can update their own user data" 
   ON public.users 
   FOR UPDATE 
   TO authenticated
   USING (id = auth.uid());
 
+-- Allow authenticated users to insert their own data
 CREATE POLICY "New users can insert their own user data" 
   ON public.users 
   FOR INSERT 
