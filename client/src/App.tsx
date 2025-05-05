@@ -11,6 +11,7 @@ import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import UpdatePasswordPage from "@/pages/UpdatePasswordPage";
+import SettingsPage from "@/pages/SettingsPage";
 import { WeekProvider } from "./contexts/WeekContext";
 import Layout from "@/components/Layout";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -54,6 +55,13 @@ function Router() {
         <PrivateRoute>
           <Layout>
             <CalendarPage />
+          </Layout>
+        </PrivateRoute>
+      </Route>
+      <Route path="/settings">
+        <PrivateRoute>
+          <Layout>
+            <SettingsPage />
           </Layout>
         </PrivateRoute>
       </Route>

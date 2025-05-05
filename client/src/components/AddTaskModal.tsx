@@ -23,6 +23,8 @@ import { X, Calendar, Clock, Palette, Trash2 } from "lucide-react";
 import { formatISO, parseISO, isValid } from 'date-fns';
 import { RangeTimePicker } from "@/components/ui/date-time-picker";
 import { ColorPicker } from "@/components/ui/color-picker";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabaseClient";
 
 // Function to format Date object or ISO string into yyyy-MM-ddTHH:mm for datetime-local input
 const formatDateTimeLocal = (date: string | Date | null | undefined): string => {
@@ -84,6 +86,32 @@ interface AddTaskModalProps {
 
 export default function AddTaskModal({ open, onClose, task, isEditing = false, defaultStartTime, defaultEndTime }: AddTaskModalProps) {
   const { addTask, updateTask, deleteTask } = useTaskContext();
+  const { user } = useAuth();
+  const [defaultTaskColor, setDefaultTaskColor] = useState("#6C584C");
+  
+  // Fetch user's default task color
+  useEffect(() => {
+    const fetchDefaultColor = async () => {
+      if (!user?.id) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('default_task_color')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) throw error;
+        if (data?.default_task_color) {
+          setDefaultTaskColor(data.default_task_color);
+        }
+      } catch (error) {
+        console.error('Error fetching default task color:', error);
+      }
+    };
+
+    fetchDefaultColor();
+  }, [user?.id]);
   
   // Form with simplified schema and defaults
   const form = useForm<TaskFormValues>({
@@ -91,7 +119,7 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
     defaultValues: {
       title: task?.title || "",
       notes: task?.notes || "",
-      color: task?.color || "#6C584C",
+      color: task?.color || defaultTaskColor,
       startTime: task?.start_time ? parseISO(task.start_time) : (defaultStartTime ? parseISO(defaultStartTime) : null),
       endTime: task?.end_time ? parseISO(task.end_time) : (defaultEndTime ? parseISO(defaultEndTime) : null),
     },
@@ -103,7 +131,7 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
       form.reset({
         title: task.title,
         notes: task.notes || "",
-        color: (task as any).color || "#3b82f6",
+        color: (task as any).color || defaultTaskColor,
         startTime: (task as any).start_time ? parseISO((task as any).start_time) : null,
         endTime: (task as any).end_time ? parseISO((task as any).end_time) : null,
       });
@@ -111,7 +139,7 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
       form.reset({
         title: "",
         notes: "",
-        color: "#6C584C",
+        color: defaultTaskColor,
         startTime: defaultStartTime ? parseISO(defaultStartTime) : null,
         endTime: defaultEndTime ? parseISO(defaultEndTime) : null,
       });
@@ -119,12 +147,12 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
       form.reset({
         title: "",
         notes: "",
-        color: "#6C584C",
+        color: defaultTaskColor,
         startTime: null,
         endTime: null,
       });
     }
-  }, [task, isEditing, open, form, defaultStartTime, defaultEndTime]);
+  }, [task, isEditing, open, form, defaultStartTime, defaultEndTime, defaultTaskColor]);
 
   // onSubmit: Prepare payload with explicit snake_case keys matching DB schema
   const onSubmit = async (formData: TaskFormValues) => {

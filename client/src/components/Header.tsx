@@ -84,9 +84,11 @@ export default function Header() {
                   <User className="mr-2 h-4 w-4" strokeWidth={2.5} />
                   <span>Profile</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="flex items-center cursor-pointer">
-                  <Settings className="mr-2 h-4 w-4" strokeWidth={2.5} />
-                  <span>Settings</span>
+                <DropdownMenuItem asChild className="flex items-center cursor-pointer">
+                  <Link to="/settings">
+                    <Settings className="mr-2 h-4 w-4" strokeWidth={2.5} />
+                    <span>Settings</span>
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <div className="p-2">

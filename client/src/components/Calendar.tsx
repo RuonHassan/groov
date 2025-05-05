@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabaseClient";
 import AddTaskModal from './AddTaskModal';
 import GoogleEventModal from './GoogleEventModal';
 import { useGoogleCalendar } from '@/contexts/GoogleCalendarContext';
+import { useAuth } from "@/contexts/AuthContext";
 
 // Current time indicator calculation constants
 const CALENDAR_START_HOUR = 8;
@@ -72,6 +73,8 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   const [googleEvents, setGoogleEvents] = useState<GoogleEvent[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date()); // State for current time
   const [mobileOffset, setMobileOffset] = useState(0); // 0 for Mon-Wed, 1 for Wed-Fri
+  const { user } = useAuth();
+  const [defaultGcalColor, setDefaultGcalColor] = useState("#B1C29E");
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); 
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
@@ -182,6 +185,30 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
 
     fetchGoogleEvents();
   }, [isConnected, calendars, currentDate]); // Only depend on isConnected, calendars, and currentDate
+
+  // Fetch user's default Google Calendar event color
+  useEffect(() => {
+    const fetchDefaultColor = async () => {
+      if (!user?.id) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('default_gcal_color')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) throw error;
+        if (data?.default_gcal_color) {
+          setDefaultGcalColor(data.default_gcal_color);
+        }
+      } catch (error) {
+        console.error('Error fetching default Google Calendar color:', error);
+      }
+    };
+
+    fetchDefaultColor();
+  }, [user?.id]);
 
   const formatWeekdayHeader = (date: Date) => format(date, 'EEE');
   const formatDateHeader = (date: Date) => format(date, 'd');
@@ -416,7 +443,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                           style={{
                             top: `${topPercent}%`,
                             height: `${Math.max(heightPercent, 5)}%`,
-                            backgroundColor: isCompleted ? undefined : (isGoogleEvent ? '#B1C29E' : item.color || '#3b82f6'),
+                            backgroundColor: isCompleted ? undefined : (isGoogleEvent ? defaultGcalColor : item.color || '#3b82f6'),
                             width: `calc(${width}% - 2px)`,
                             left: `${left}%`,
                             right: 'auto'
