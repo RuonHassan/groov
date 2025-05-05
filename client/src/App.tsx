@@ -11,7 +11,6 @@ import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import UpdatePasswordPage from "@/pages/UpdatePasswordPage";
-import SettingsPage from "@/pages/SettingsPage";
 import { WeekProvider } from "./contexts/WeekContext";
 import Layout from "@/components/Layout";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -58,13 +57,6 @@ function Router() {
           </Layout>
         </PrivateRoute>
       </Route>
-      <Route path="/settings">
-        <PrivateRoute>
-          <Layout>
-            <SettingsPage />
-          </Layout>
-        </PrivateRoute>
-      </Route>
 
       {/* OAuth Callback routes */}
       <Route path="/auth/google/callback">
@@ -79,21 +71,19 @@ function Router() {
   );
 }
 
-function App() {
+export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <GoogleCalendarProvider>
+        <WeekProvider>
           <TaskProvider>
-            <WeekProvider>
+            <GoogleCalendarProvider>
               <Router />
               <Toaster />
-            </WeekProvider>
+            </GoogleCalendarProvider>
           </TaskProvider>
-        </GoogleCalendarProvider>
+        </WeekProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
 }
-
-export default App;

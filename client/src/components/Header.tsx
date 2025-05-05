@@ -10,6 +10,8 @@ import {
   Settings
 } from "lucide-react";
 import WeeklyReviewModal from "./WeeklyReviewModal";
+import CalendarSettingsPopup from "./CalendarSettingsPopup";
+import SettingsPopup from "./SettingsPopup";
 import { format, startOfWeek, isSameWeek, addWeeks } from "date-fns";
 import {
   Tooltip,
@@ -24,14 +26,14 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import GoogleCalendarButton from "./GoogleCalendarButton";
 
 export default function Header() {
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showCalendarSettings, setShowCalendarSettings] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [isOnCalendar] = useRoute("/calendar");
   const { currentDate, goToPreviousWeek, goToNextWeek } = useWeek();
   const { user, signOut } = useAuth();
@@ -78,25 +80,23 @@ export default function Header() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="flex items-center cursor-pointer">
-                  <User className="mr-2 h-4 w-4" strokeWidth={2.5} />
-                  <span>Profile</span>
+                <DropdownMenuItem 
+                  className="flex items-center cursor-pointer"
+                  onClick={() => setShowCalendarSettings(true)}
+                >
+                  <Calendar className="mr-2 h-4 w-4" strokeWidth={2.5} />
+                  <span>Calendars</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild className="flex items-center cursor-pointer">
-                  <Link to="/settings">
-                    <Settings className="mr-2 h-4 w-4" strokeWidth={2.5} />
-                    <span>Settings</span>
-                  </Link>
+                <DropdownMenuItem 
+                  className="flex items-center cursor-pointer"
+                  onClick={() => setShowSettings(true)}
+                >
+                  <Settings className="mr-2 h-4 w-4" strokeWidth={2.5} />
+                  <span>Settings</span>
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <div className="p-2">
-                  <GoogleCalendarButton />
-                </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
-                  className="flex items-center text-red-600 cursor-pointer"
+                  className="flex items-center cursor-pointer text-red-600"
                   onClick={handleSignOut}
                 >
                   <LogOut className="mr-2 h-4 w-4" strokeWidth={2.5} />
@@ -173,6 +173,8 @@ export default function Header() {
 
       {/* Weekly Review Modal */}
       <WeeklyReviewModal open={showReviewModal} onClose={() => setShowReviewModal(false)} />
+      <CalendarSettingsPopup open={showCalendarSettings} onOpenChange={setShowCalendarSettings} />
+      <SettingsPopup open={showSettings} onOpenChange={setShowSettings} />
     </header>
   );
 }

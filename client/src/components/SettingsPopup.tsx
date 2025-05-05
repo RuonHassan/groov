@@ -7,8 +7,19 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
-export default function SettingsPage() {
+interface SettingsPopupProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export default function SettingsPopup({ open, onOpenChange }: SettingsPopupProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [defaultTaskColor, setDefaultTaskColor] = useState("#6C584C");
@@ -52,8 +63,10 @@ export default function SettingsPage() {
       }
     };
 
-    fetchUserSettings();
-  }, [user?.id]);
+    if (open) {
+      fetchUserSettings();
+    }
+  }, [user?.id, open]);
 
   useEffect(() => {
     // Check if there are any unsaved changes
@@ -144,61 +157,60 @@ export default function SettingsPage() {
     setTempGcalColor(color);
   };
 
-  if (loading) {
-    return <div className="p-4">Loading settings...</div>;
-  }
-
   return (
-    <div className="container mx-auto p-4 max-w-2xl">
-      <h1 className="text-2xl font-bold mb-6">Settings</h1>
-      
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Default Colors</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label>Default Task Color</Label>
-            <ColorPicker value={tempTaskColor} onChange={handleTaskColorChange} />
-            
-          </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px] rounded-xl">
+        <DialogHeader>
+          <DialogTitle>Settings</DialogTitle>
+        </DialogHeader>
+        {loading ? (
+          <div className="p-4 text-center">Loading settings...</div>
+        ) : (
+          <>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label>Default Task Color</Label>
+                <ColorPicker value={tempTaskColor} onChange={handleTaskColorChange} />
+              </div>
 
-          <div className="space-y-2">
-            <Label>Default Google Calendar Event Color</Label>
-            <ColorPicker value={tempGcalColor} onChange={handleGcalColorChange} />
-           
-          </div>
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button
-            variant="outline"
-            onClick={resetToDefaults}
-            disabled={saving}
-          >
-            {saving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Resetting...
-              </>
-            ) : (
-              'Reset to Defaults'
-            )}
-          </Button>
-          <Button
-            onClick={saveSettings}
-            disabled={!hasChanges || saving}
-          >
-            {saving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save Changes'
-            )}
-          </Button>
-        </CardFooter>
-      </Card>
-    </div>
+              <div className="space-y-2">
+                <Label>Default Google Calendar Event Color</Label>
+                <ColorPicker value={tempGcalColor} onChange={handleGcalColorChange} />
+              </div>
+            </div>
+            
+            <div className="flex justify-between mt-6">
+              <Button
+                variant="outline"
+                onClick={resetToDefaults}
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Resetting...
+                  </>
+                ) : (
+                  'Reset to Defaults'
+                )}
+              </Button>
+              <Button
+                onClick={saveSettings}
+                disabled={!hasChanges || saving}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </Button>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 } 

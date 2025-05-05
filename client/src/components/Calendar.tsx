@@ -409,13 +409,9 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                       if (isCompleted) {
                         taskClasses += " bg-gray-200 text-gray-500 border border-gray-200 cursor-default";
                       } else {
-                        const bgColor = isGoogleEvent ? '#B1C29E' : (item.color || '#3b82f6');
+                        const bgColor = isGoogleEvent ? defaultGcalColor : (item.color || '#3b82f6');
                         const textColor = isLightColor(bgColor) ? 'text-gray-900' : 'text-white';
                         taskClasses += ` ${textColor} hover:opacity-90 ${isGoogleEvent ? 'cursor-default' : 'cursor-pointer'}`;
-                        
-                        if (isGoogleEvent) {
-                          taskClasses += " border border-[#B1C29E]";
-                        }
                       }
 
                       const googleEventCount = array.filter(i => 'summary' in i).length;
@@ -436,6 +432,8 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                         left = 1 + (index * width);
                       }
 
+                      const bgColor = isCompleted ? undefined : (isGoogleEvent ? defaultGcalColor : item.color || '#3b82f6');
+
                       return (
                         <div
                           key={isGoogleEvent ? item.id : item.id.toString()}
@@ -443,10 +441,13 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                           style={{
                             top: `${topPercent}%`,
                             height: `${Math.max(heightPercent, 5)}%`,
-                            backgroundColor: isCompleted ? undefined : (isGoogleEvent ? defaultGcalColor : item.color || '#3b82f6'),
+                            backgroundColor: bgColor,
+                            borderColor: bgColor,
                             width: `calc(${width}% - 2px)`,
                             left: `${left}%`,
-                            right: 'auto'
+                            right: 'auto',
+                            borderWidth: '1px',
+                            borderStyle: 'solid'
                           }}
                           onClick={(e) => {
                             e.stopPropagation();

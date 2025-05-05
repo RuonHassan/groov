@@ -1,18 +1,12 @@
 import { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { CalendarClock, Check, MoreVertical, Trash2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useGoogleCalendar } from '@/contexts/GoogleCalendarContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { useLocation } from 'wouter';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 export default function GoogleCalendarButton() {
   const [isLoading, setIsLoading] = useState(false);
@@ -25,10 +19,6 @@ export default function GoogleCalendarButton() {
   const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
 
   const handleAuthClick = async () => {
-    console.log('Auth click handler started');
-    console.log('Session:', session);
-    console.log('Client ID:', CLIENT_ID);
-
     if (!session?.user?.id) {
       toast({ title: "Not Logged In", description: "Please log in to connect your calendar.", variant: "destructive" });
       setLocation('/login');
@@ -47,18 +37,13 @@ export default function GoogleCalendarButton() {
 
     setIsLoading(true);
     try {
-      // Generate state parameter with user ID
       const state = JSON.stringify({
         user_id: session.user.id,
         nonce: Math.random().toString(36).substring(2)
       });
 
-      console.log('Generated state:', state);
-
-      // Store state in localStorage for verification
       localStorage.setItem('googleOAuthState', state);
 
-      // Construct OAuth URL with all necessary parameters
       const oauthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
       oauthUrl.searchParams.append('client_id', CLIENT_ID);
       oauthUrl.searchParams.append('redirect_uri', 'https://groov-tasks.vercel.app/auth/google/callback');
@@ -68,11 +53,7 @@ export default function GoogleCalendarButton() {
       oauthUrl.searchParams.append('prompt', 'consent');
       oauthUrl.searchParams.append('state', state);
 
-      const finalUrl = oauthUrl.toString();
-      console.log('[GoogleCalendarButton] Attempting to redirect to:', finalUrl);
-
-      // Redirect to Google OAuth
-      window.location.href = finalUrl;
+      window.location.href = oauthUrl.toString();
     } catch (error: any) {
       console.error('Auth error:', error);
       toast({
@@ -89,9 +70,8 @@ export default function GoogleCalendarButton() {
 
     try {
       setIsLoading(true);
-      const calendar = calendars[0]; // Get the first calendar since we only support one for now
+      const calendar = calendars[0];
 
-      // Delete the calendar connection from Supabase
       const { error: deleteError } = await supabase
         .from('connected_calendars')
         .delete()
@@ -101,7 +81,6 @@ export default function GoogleCalendarButton() {
         throw deleteError;
       }
 
-      // Invalidate the React Query cache to refetch calendar data
       await queryClient.invalidateQueries({ queryKey: ['connectedCalendars'] });
 
       toast({
@@ -120,49 +99,34 @@ export default function GoogleCalendarButton() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <Button variant="outline" size="sm" disabled>
+        <Loader2 className="h-4 w-4 animate-spin" />
+      </Button>
+    );
+  }
+
+  if (isConnected) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleDeleteCalendar}
+        className="text-red-600 hover:text-red-700"
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    );
+  }
+
   return (
-    <div className="w-full">
-      {!isConnected ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleAuthClick}
-          disabled={isLoading}
-          className="flex items-center gap-2 w-full justify-start"
-        >
-          <CalendarClock className="h-4 w-4" />
-          <span>Add Calendar</span>
-        </Button>
-      ) : (
-        <div className="flex items-center justify-between w-full">
-          <div className="flex items-center gap-1 px-3 py-1 text-xs text-green-600">
-            <Check className="h-3 w-3" />
-            <span>Calendar Connected</span>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                className="text-red-600 focus:text-red-600 cursor-pointer"
-                onClick={handleDeleteCalendar}
-                disabled={isLoading}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Disconnect Calendar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )}
-      {isLoading && (
-        <div className="px-3 py-1 text-xs text-gray-500">
-          Connecting...
-        </div>
-      )}
-    </div>
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={handleAuthClick}
+    >
+      Add Calendar
+    </Button>
   );
 } 
