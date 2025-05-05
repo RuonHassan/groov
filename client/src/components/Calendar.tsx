@@ -117,6 +117,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [longPressTimeout, setLongPressTimeout] = useState<NodeJS.Timeout | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [dragGhost, setDragGhost] = useState<HTMLElement | null>(null);
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); 
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
@@ -345,27 +346,70 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
     setShowEventModal(true);
   };
 
+  // Create and manage drag ghost element
+  const createDragGhost = (task: Task, color: string) => {
+    const ghost = document.createElement('div');
+    ghost.className = 'fixed pointer-events-none z-50 rounded shadow-lg';
+    ghost.style.width = '200px';
+    ghost.style.height = '32px';
+    ghost.style.backgroundColor = color;
+    ghost.style.padding = '4px 8px';
+    ghost.style.fontSize = '12px';
+    ghost.style.fontWeight = '500';
+    ghost.style.color = isLightColor(color) ? '#111' : '#fff';
+    ghost.style.opacity = '0.9';
+    ghost.style.transform = 'translate(-50%, -50%)';
+    ghost.textContent = task.title;
+    document.body.appendChild(ghost);
+    return ghost;
+  };
+
+  const updateDragGhostPosition = (x: number, y: number) => {
+    if (dragGhost) {
+      dragGhost.style.left = `${x}px`;
+      dragGhost.style.top = `${y}px`;
+    }
+  };
+
+  const removeDragGhost = () => {
+    if (dragGhost) {
+      document.body.removeChild(dragGhost);
+      setDragGhost(null);
+    }
+  };
+
   // Handle long press to start dragging
-  const handleTouchStart = (e: React.TouchEvent, task: Task) => {
-    if (task.completed_at) return; // Don't allow dragging completed tasks
+  const handleTouchStart = (e: React.TouchEvent, task: Task, color: string) => {
+    if (task.completed_at) return;
+
+    // Prevent text selection
+    e.preventDefault();
     
     const timer = setTimeout(() => {
       setTouchDragTask(task);
       setTouchStartY(e.touches[0].clientY);
       setIsDragging(true);
+      
       // Add visual feedback
       const element = e.currentTarget as HTMLElement;
       element.style.opacity = '0.5';
-    }, 500); // 500ms long press
+
+      // Create drag ghost
+      const ghost = createDragGhost(task, color);
+      setDragGhost(ghost);
+      updateDragGhostPosition(e.touches[0].clientX, e.touches[0].clientY);
+    }, 500);
 
     setLongPressTimeout(timer);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchDragTask || !isDragging) return;
-    e.preventDefault(); // Prevent scrolling while dragging
+    e.preventDefault();
 
     const touch = e.touches[0];
+    updateDragGhostPosition(touch.clientX, touch.clientY);
+
     const elementsAtPoint = document.elementsFromPoint(touch.clientX, touch.clientY);
     const timeSlotElement = elementsAtPoint.find(el => el.hasAttribute('data-hour')) as HTMLElement;
 
@@ -386,6 +430,9 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
       clearTimeout(longPressTimeout);
       setLongPressTimeout(null);
     }
+
+    // Remove drag ghost
+    removeDragGhost();
 
     if (!touchDragTask || !isDragging) return;
 
@@ -443,6 +490,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   useEffect(() => {
     const handleScroll = () => {
       if (touchDragTask) {
+        removeDragGhost();
         setTouchDragTask(null);
         setTouchStartY(null);
         setIsDragging(false);
@@ -457,7 +505,10 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
     };
 
     window.addEventListener('scroll', handleScroll, true);
-    return () => window.removeEventListener('scroll', handleScroll, true);
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true);
+      removeDragGhost(); // Clean up ghost on unmount
+    };
   }, [touchDragTask]);
 
   return (
@@ -649,7 +700,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                       return (
                         <div
                           key={isGoogleEvent ? item.id : item.id.toString()}
-                          className={`${taskClasses} task-card`}
+                          className={`${taskClasses} task-card select-none`}
                           style={{
                             top: `${topPercent}%`,
                             height: `${Math.max(heightPercent, 5)}%`,
@@ -660,10 +711,13 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                             right: 'auto',
                             borderWidth: '1px',
                             borderStyle: 'solid',
-                            touchAction: 'none' // Prevent scrolling while dragging
+                            touchAction: 'none',
+                            WebkitTouchCallout: 'none', // Prevent iOS callout
+                            WebkitUserSelect: 'none', // Prevent text selection
+                            userSelect: 'none' // Prevent text selection
                           }}
                           draggable={!isGoogleEvent && !isCompleted}
-                          onTouchStart={(e) => !isGoogleEvent && handleTouchStart(e, item as Task)}
+                          onTouchStart={(e) => !isGoogleEvent && handleTouchStart(e, item as Task, bgColor || '#3b82f6')}
                           onTouchMove={handleTouchMove}
                           onTouchEnd={handleTouchEnd}
                           onDragStart={(e) => {
