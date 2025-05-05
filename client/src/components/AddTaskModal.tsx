@@ -98,7 +98,7 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
         const { data, error } = await supabase
           .from('users')
           .select('default_task_color')
-          .eq('user_id', user.id)
+          .eq('id', user.id)
           .single();
 
         if (error) throw error;
