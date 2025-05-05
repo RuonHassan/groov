@@ -3,11 +3,11 @@ description:
 globs: 
 alwaysApply: true
 ---
-# TaskFlow GTD - Product Documentation
+# Groov- Product Documentation
 
 ## Overview
 
-TaskFlow GTD is a comprehensive productivity application built on the Getting Things Done (GTD) methodology. It helps users organize, prioritize, and track tasks efficiently with a minimalist and intuitive interface. The application includes task management, calendar integration, and a Pomodoro timer with forest gamification elements.
+Groov is a simple productivity application built on the Getting Things Done (GTD) methodology. It helps users organize and track tasks efficiently with a minimalist and intuitive interface. The application includes task management and read-only calendar integration.
 
 ## Technology Stack
 
