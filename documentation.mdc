@@ -3,21 +3,24 @@ description:
 globs: 
 alwaysApply: false
 ---
-# TaskFlow GTD - Product Documentation
+# Groov- Product Documentation
 
 ## Overview
 
-TaskFlow GTD is a comprehensive productivity application built on the Getting Things Done (GTD) methodology. It helps users organize, prioritize, and track tasks efficiently with a minimalist and intuitive interface. The application includes task management and calendar integration with a focus on simplicity and effectiveness.
+Groov is a simple productivity application designed to help users organize and track tasks efficiently with a minimalist and intuitive interface. The application includes task management and read-only Google Calendar integration.
 
 ## Technology Stack
 
 - **Frontend**: React with TypeScript
-- **Backend**: Express.js
-- **State Management**: React Query
-- **UI Components**: Shadcn UI with Tailwind CSS
+- **Backend**: Supabase (PostgreSQL)
+- **Database ORM**: Drizzle ORM
+- **Authentication**: Supabase Auth
+- **State Management/Data Fetching**: TanStack React Query
+- **UI Components**: Shadcn UI (built on Radix UI & Tailwind CSS)
+- **Styling**: Tailwind CSS
 - **Routing**: Wouter
 - **Form Handling**: React Hook Form with Zod validation
-- **Data Storage**: In-memory storage with future PostgreSQL integration
+- **Date Handling**: `date-fns`, `react-day-picker`
 
 ## Application Structure
 
@@ -27,162 +30,123 @@ The client application is organized into the following directories:
 
 - `/client/src/components`: Reusable UI components
 - `/client/src/components/ui`: Shadcn UI components
-- `/client/src/contexts`: React contexts for state management
+- `/client/src/contexts`: React contexts for state management and data fetching
 - `/client/src/hooks`: Custom React hooks
-- `/client/src/lib`: Utility functions and configurations
+- `/client/src/lib`: Utility functions, configurations (including Supabase client)
 - `/client/src/pages`: Main page components
 
-### Server-Side Architecture
+### Server-Side/Backend
 
-The server provides a REST API for data operations:
-
-- `/server/index.ts`: Express server setup
-- `/server/routes.ts`: API endpoint definitions
-- `/server/storage.ts`: Data storage implementation
-- `/server/vite.ts`: Vite configuration for development
+- **Database**: PostgreSQL managed via Supabase
+- **Schema**: Defined using Drizzle ORM in `/shared/schema.ts`
+- **Authentication**: Handled by Supabase Auth
+- **Row Level Security (RLS)**: Implemented in PostgreSQL for data access control (see `/sql/`)
+- **Data Interaction**: Primarily through the Supabase client library (`@supabase/supabase-js`) on the frontend, coordinated with React Query.
 
 ### Shared Code
 
-- `/shared/schema.ts`: Contains shared data models and validation schemas
+- `/shared/schema.ts`: Contains Drizzle ORM schema definitions, Zod validation schemas derived using `drizzle-zod`, and shared TypeScript types.
 
 ## Core Features
 
 ### 1. Task Management
 
-Tasks in the application follow the GTD methodology with the following statuses:
+- **Task Creation & Editing**: Add tasks with titles, notes, start/end times, and color-coding.
+- **Task Views**: Organize and view tasks, including sections for Today, Tomorrow, Future, and Someday based on start times.
+- **Completion Tracking**: Mark tasks as completed.
 
-- **Inbox**: New, uncategorized tasks
-- **Next**: Tasks ready to be worked on
-- **Waiting**: Tasks pending someone else's action
-- **Someday**: Tasks to be considered in the future
-- **Projects**: Multi-step tasks
-- **Completed**: Finished tasks
+Tasks contain the following properties (derived from `shared/schema.ts`):
+- `id`: Unique identifier (number)
+- `title`: Task name (string)
+- `notes`: Additional information (string, nullable)
+- `color`: Hex color code for the task (string, nullable)
+- `startTime`: Start date and time (timestamp string, nullable) - `start_time` in DB
+- `endTime`: End date and time (timestamp string, nullable) - `end_time` in DB
+- `completedAt`: Completion timestamp (timestamp string, nullable) - `completed_at` in DB
+- `createdAt`: Creation timestamp (timestamp string) - `created_at` in DB
+- `updatedAt`: Last updated timestamp (timestamp string) - `updated_at` in DB
+- `user_id`: Associated user ID (UUID, handled by RLS)
 
-Tasks contain the following properties:
-- `id`: Unique identifier
-- `title`: Task name
-- `notes`: Additional information
-- `status`: Current state (inbox/next/waiting/etc.)
-- `context`: Environment or tool needed (e.g., home, computer)
-- `energy`: Energy level required (high/medium/low)
-- `priority`: Importance level (high/medium/low)
-- `time`: Estimated time in minutes
-- `dueDate`: Optional deadline
-- `completedAt`: Completion timestamp
-- `createdAt`: Creation timestamp
+### 2. Google Calendar Integration (Read-Only)
 
-### 2. Calendar Integration
+- **Connect Google Account**: Authenticate via OAuth to link a Google Calendar.
+- **View Events**: Display events from the primary connected Google Calendar alongside tasks in the weekly view.
+- **Future Plans**: Expand integration to include Outlook and iCal, potentially adding write capabilities.
 
-The calendar feature allows users to:
-- Schedule tasks at specific time slots
-- View tasks in a weekly calendar view
-- Create, update, and delete calendar events
-- Link calendar events to specific tasks
+### 3. User Authentication
 
-Calendar events contain:
-- `id`: Unique identifier
-- `title`: Event name
-- `description`: Event details
-- `startTime`: Start date and time
-- `endTime`: End date and time
-- `taskId`: Optional associated task
-- `createdAt`: Creation timestamp
+- **Secure Login/Registration**: Uses Supabase Auth for user management.
+- **Data Isolation**: Each user's data (e.g., tasks) is secured using PostgreSQL Row Level Security based on their authenticated user ID.
 
-### 3. Google Calendar Sync
+## API Endpoints / Data Fetching
 
-The application can sync with Google Calendar, providing:
-- OAuth authentication flow
-- Two-way synchronization of events
-- Multiple calendar connections
-- Automatic update of connected calendars
-
-## API Endpoints
-
-### Task Management
-
-- `GET /api/tasks`: Get all tasks
-- `GET /api/tasks/:id`: Get a specific task
-- `POST /api/tasks`: Create a new task
-- `PATCH /api/tasks/:id`: Update a task
-- `DELETE /api/tasks/:id`: Delete a task
-
-### Calendar Events
-
-- `GET /api/calendar-events`: Get all calendar events
-- `GET /api/calendar-events/:id`: Get a specific event
-- `POST /api/calendar-events`: Create a new event
-- `PATCH /api/calendar-events/:id`: Update an event
-- `DELETE /api/calendar-events/:id`: Delete an event
-
-### Connected Calendars
-
-- `GET /api/users/:userId/connected-calendars`: Get user's connected calendars
-- `POST /api/connected-calendars`: Connect a new calendar
-- `PATCH /api/connected-calendars/:id`: Update a connected calendar
-- `DELETE /api/connected-calendars/:id`: Disconnect a calendar
+Data interaction (CRUD operations for tasks, fetching calendar connection info) is primarily handled via:
+- **Supabase Client Library (`@supabase/supabase-js`)**: Used directly in the frontend.
+- **TanStack React Query**: Manages server state, caching, and data fetching hooks.
+- **PostgreSQL Row Level Security (RLS)**: Enforces data access rules directly in the database.
+- **Supabase Edge Functions (Potential)**: The `/supabase/functions/` directory suggests potential use, though not confirmed active in this analysis.
 
 ## Data Models
 
-### Task
+### Task (from `shared/schema.ts`)
 
 ```typescript
+// Represents the data structure fetched from the database (snake_case)
 export type Task = {
   id: number;
   title: string;
   notes: string | null;
-  status: "inbox" | "next" | "waiting" | "someday" | "project" | "completed";
-  context: string | null;
-  energy: "high" | "medium" | "low" | null;
-  priority: "high" | "medium" | "low" | null;
-  time: number | null;
-  dueDate: string | null;
-  completedAt: string | null;
-  createdAt: string;
+  color: string | null;
+  start_time: string | null; // ISO 8601 timestamp
+  end_time: string | null;   // ISO 8601 timestamp
+  completed_at: string | null; // ISO 8601 timestamp
+  created_at: string;        // ISO 8601 timestamp
+  updated_at: string;        // ISO 8601 timestamp
+  // user_id is present in DB for RLS but usually not directly handled in frontend model
 };
-```
 
-### Calendar Event
-
-```typescript
-export type CalendarEvent = {
-  id: number;
+// Represents the data structure used for inserting/updating (camelCase, matches form)
+export type InsertTask = {
   title: string;
-  description: string | null;
-  startTime: string;
-  endTime: string;
-  taskId: number | null;
-  createdAt: string;
+  notes?: string | null;
+  color?: string | null;
+  startTime?: string | null; // ISO 8601 timestamp
+  endTime?: string | null;   // ISO 8601 timestamp
+  // completedAt, createdAt, updatedAt, id are handled by DB/backend
 };
 ```
 
-### Connected Calendar
+### Connected Calendar (from `shared/schema.ts`)
 
 ```typescript
 export type ConnectedCalendar = {
   id: number;
-  user_id: number;
-  provider: 'google' | 'outlook' | string;
+  user_id: number; // Or UUID depending on user table schema
+  provider: 'google' | 'outlook' | string; // Allows known + future providers
   calendar_id: string;
   calendar_name: string;
   access_token: string;
   refresh_token: string | null;
-  token_expires_at: string | null;
+  token_expires_at: string | null; // ISO 8601 timestamp
   is_primary: boolean;
   is_enabled: boolean;
-  created_at: string;
-  last_synced_at: string | null;
+  created_at: string; // ISO 8601 timestamp
+  last_synced_at: string | null; // ISO 8601 timestamp
 };
 ```
 
-### User
+### User (Conceptual - Managed by Supabase Auth)
 
 ```typescript
-export type User = {
-  id: number;
-  username: string;
-  password: string; // Hashed
-  email: string | null;
-  createdAt: string;
+// User data is primarily managed by Supabase Auth.
+// The 'auth.users' table typically includes fields like:
+export type AuthUser = {
+  id: string; // UUID
+  email?: string;
+  phone?: string;
+  // ... other Supabase Auth fields
+  created_at: string; // ISO 8601 timestamp
+  // ... may include app-specific metadata
 };
 ```
 
@@ -190,82 +154,82 @@ export type User = {
 
 ### Main Navigation
 
-- **Header**: Contains app title and other main navigation options
-- **Sidebar**: Provides access to different views and contexts
+- **Header**: Contains app title, user controls (login/logout/profile), and potentially quick actions.
+- **Sidebar (if applicable)**: Provides access to different views (e.g., Dashboard, Calendar).
 
 ### Task Views
 
-- **Dashboard**: Overview of tasks and upcoming calendar events
-- **Task Grid**: Main task management interface with filtering and sorting options
-- **Task Card**: Individual task display with drag-and-drop functionality
-- **Add Task Modal**: Form for creating and editing tasks
+- **Dashboard**: Overview of tasks, potentially upcoming calendar events.
+- **Task Grid**: Main task management interface showing tasks categorized by time (Today, Tomorrow, Future, Someday).
+- **Task Card**: Individual task display.
+- **Add/Edit Task Modal**: Form for creating and editing tasks (title, notes, times, color).
 
 ### Calendar Components
 
-- **Weekly Calendar**: 7-day view with hourly time slots
-- **Calendar Event Form**: Create and edit calendar events
-- **Task Connection**: Associate calendar events with tasks
+- **Weekly Calendar View**: Displays tasks and integrated Google Calendar events in a weekly layout.
+- **Google Calendar Connection**: UI elements for initiating OAuth flow (`GoogleCalendarButton.tsx`) and handling callbacks (`GoogleCalendarCallback.tsx`).
 
 ## State Management
 
-The application uses a combination of React Query for server state and React Context for UI state:
+The application uses TanStack React Query for managing server state (tasks, calendar connections) and React Context for global UI state (e.g., current week in calendar view, potentially theme).
 
-### Task Context
+### Task Context (`TaskContext.tsx`)
 
-Provides task-related state and operations:
-- Current tasks list
-- Filtering options (status, context, energy, etc.)
-- Sorting preferences
-- CRUD operations
+Provides task-related state and mutation functions using React Query:
+- Fetched tasks list (`useQuery`)
+- Functions to add, update, delete tasks (`useMutation`)
 
-### Authentication Context
+### Google Calendar Context (`GoogleCalendarContext.tsx`)
 
-Handles user authentication and profile:
-- Current user
-- Login/logout functionality
-- User preferences
+Manages state related to Google Calendar integration:
+- Connected calendar information
+- Fetched Google Calendar events
+- Authentication status
 
-### Week Context
+### Week Context (`WeekContext.tsx`)
 
-Manages calendar view state:
-- Current week being viewed
-- Week navigation
-- Date calculations
+Manages the state of the currently viewed week in the calendar component.
 
 ## Workflows
 
 ### Task Management Flow
 
-1. User creates a task via the Add Task button
-2. Task is added to the inbox
-3. User processes the task by assigning status, context, and other properties
-4. Task moves to appropriate list (next actions, waiting, etc.)
-5. User completes the task, moving it to completed status
+1. User creates a task via the Add Task button/modal.
+2. Task details (title, notes, color, start/end time) are saved via Supabase client to the PostgreSQL database.
+3. Tasks are displayed in the Task Grid, automatically categorized based on their `start_time`.
+4. User marks a task as complete, updating its `completed_at` timestamp.
 
-### Calendar Planning Flow
+### Google Calendar Connection Flow
 
-1. User selects a time slot in the calendar
-2. User creates a calendar event, optionally linking it to a task
-3. Event appears in the calendar view
-4. User receives reminders for upcoming events
+1. User clicks "Connect Google Calendar" button.
+2. User is redirected to Google for OAuth authentication.
+3. Upon successful authentication, callback component receives authorization code.
+4. Backend (likely an Edge Function or handled client-side with security considerations) exchanges code for tokens.
+5. Access token, refresh token, calendar details are stored securely (associated with the user, possibly in a `connected_calendars` table).
+6. Read-only events from the connected calendar are fetched and displayed in the UI.
 
 ## Future Enhancements
 
-- **User Authentication**: Multi-user support with secure login
-- **PostgreSQL Integration**: Moving from in-memory to persistent database storage
-- **Mobile Responsiveness**: Enhanced support for mobile devices
-- **Offline Mode**: Support for offline usage with data synchronization
-- **Notifications**: Push notifications for due tasks
-- **Data Visualization**: Charts and reports for productivity metrics
-- **Integrations**: Calendar sync with additional providers
+- **Expanded Calendar Integration**: Add support for Outlook and iCal sync, potentially add write capabilities (creating/editing events).
+- **Mobile Responsiveness**: Enhanced support for mobile devices.
+- **Offline Mode**: Support for offline usage with data synchronization.
+- **Notifications**: Push notifications for due tasks or calendar events.
+- **Data Visualization**: Charts and reports for productivity metrics.
+- **Refined Task Features**: Potentially re-introduce more structured GTD elements if desired, requiring schema changes.
 
 ## Development Guidelines
 
-- Follow the existing component structure and naming conventions
-- Use Tailwind CSS for styling with shadcn/ui components
-- Implement form validation with Zod schemas
-- Use React Query for data fetching and mutations
-- Write descriptive commit messages
+- Follow the existing component structure and naming conventions.
+- Use Tailwind CSS for styling with shadcn/ui components.
+- Implement form validation with Zod schemas (`shared/schema.ts`).
+- Use TanStack React Query for data fetching and mutations against Supabase.
+- Write descriptive commit messages.
+- Add proper TSDoc comments for functions and components.
+- Ensure environment variables (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) are configured correctly.
+
+## Deployment
+
+The application is configured for deployment on **Vercel** (see `vercel.json`). 
 - Add proper TSDoc comments for functions and components
 
 ## Deployment
