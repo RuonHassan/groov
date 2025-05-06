@@ -43,7 +43,7 @@ export default function CalendarSettingsPopup({ open, onOpenChange }: CalendarSe
             </div>
 
             {/* Outlook Calendar - Coming Soon */}
-            <div className="relative flex items-center justify-between space-x-2 p-3 rounded-lg border opacity-50">
+            <div className="flex items-center justify-between space-x-2 p-3 rounded-lg border opacity-50">
               <div className="flex items-center space-x-3">
                 <CalendarClock className="h-5 w-5" />
                 <div>
@@ -51,15 +51,12 @@ export default function CalendarSettingsPopup({ open, onOpenChange }: CalendarSe
                 </div>
               </div>
               <Button variant="outline" size="sm" disabled>
-                Add Calendar
+                Coming Soon
               </Button>
-              <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg">
-                <span className="text-sm font-medium">Coming Soon</span>
-              </div>
             </div>
 
             {/* Apple Calendar - Coming Soon */}
-            <div className="relative flex items-center justify-between space-x-2 p-3 rounded-lg border opacity-50">
+            <div className="flex items-center justify-between space-x-2 p-3 rounded-lg border opacity-50">
               <div className="flex items-center space-x-3">
                 <CalendarClock className="h-5 w-5" />
                 <div>
@@ -67,11 +64,8 @@ export default function CalendarSettingsPopup({ open, onOpenChange }: CalendarSe
                 </div>
               </div>
               <Button variant="outline" size="sm" disabled>
-                Add Calendar
+                Coming Soon
               </Button>
-              <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg">
-                <span className="text-sm font-medium">Coming Soon</span>
-              </div>
             </div>
           </div>
         </div>
