@@ -107,7 +107,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   const { isConnected, calendars, fetchEvents } = useGoogleCalendar();
   const [googleEvents, setGoogleEvents] = useState<GoogleEvent[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date()); // State for current time
-  const [mobileOffset, setMobileOffset] = useState(0); // 0 for Mon-Wed, 1 for Wed-Fri
+  const [mobileViewOffset, setMobileViewOffset] = useState<'early' | 'late'>('early'); // 'early' for Mon-Wed, 'late' for Wed-Fri
   const { user } = useAuth();
   const [defaultGcalColor, setDefaultGcalColor] = useState("#B1C29E");
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
@@ -125,7 +125,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
 
   const allWeekDays = Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
   
-  // Get visible days based on screen size and mobile offset
+  // Get visible days based on screen size and current view
   const getVisibleDays = () => {
     // On desktop, show all weekdays (Mon-Fri)
     if (window.innerWidth >= 768) {
@@ -135,43 +135,36 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
       });
     }
     
-    // On mobile, show 3 days based on offset
-    // Using fixed ranges: Mon-Wed or Wed-Fri
-    if (mobileOffset === 0) {
-      return allWeekDays.slice(0, 3); // Mon, Tue, Wed
-    } else {
-      return allWeekDays.slice(2, 5); // Wed, Thu, Fri
-    }
+    // On mobile, show 3 days based on the current view offset
+    return mobileViewOffset === 'early' ? allWeekDays.slice(0, 3) : allWeekDays.slice(2, 5);
   };
 
   // Mobile navigation functions
   const goToPreviousThreeDays = () => {
-    // If we're showing Wed-Fri, go back to Mon-Wed of the same week
-    if (mobileOffset === 1) {
-      setMobileOffset(0);
-    } 
-    // If we're showing Mon-Wed, go to Wed-Fri of the previous week
-    else {
+    if (mobileViewOffset === 'late') {
+      // If showing Wed-Fri, go back to Mon-Wed of the same week
+      setMobileViewOffset('early');
+    } else {
+      // If showing Mon-Wed, go to Wed-Fri of the previous week
       goToPreviousWeek();
-      setMobileOffset(1);
+      setMobileViewOffset('late');
     }
   };
 
   const goToNextThreeDays = () => {
-    // If we're showing Mon-Wed, go to Wed-Fri of the same week
-    if (mobileOffset === 0) {
-      setMobileOffset(1);
-    } 
-    // If we're showing Wed-Fri, go to Mon-Wed of the next week
-    else {
+    if (mobileViewOffset === 'early') {
+      // If showing Mon-Wed, go to Wed-Fri of the same week
+      setMobileViewOffset('late');
+    } else {
+      // If showing Wed-Fri, go to Mon-Wed of the next week
       goToNextWeek();
-      setMobileOffset(0);
+      setMobileViewOffset('early');
     }
   };
 
   const [visibleDays, setVisibleDays] = useState(getVisibleDays());
 
-  // Update visible days when window is resized, date changes, or mobile offset changes
+  // Update visible days when window is resized, date changes, or view offset changes
   useEffect(() => {
     const handleResize = () => {
       setVisibleDays(getVisibleDays());
@@ -181,7 +174,13 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
     handleResize(); // Initial call
 
     return () => window.removeEventListener('resize', handleResize);
-  }, [currentDate, mobileOffset]); // Re-run when date or mobile offset changes
+  }, [currentDate, mobileViewOffset]); // Re-run when date or view offset changes
+
+  // Set initial mobile view offset based on current day
+  useEffect(() => {
+    const currentDayOfWeek = getDay(currentDate);
+    setMobileViewOffset(currentDayOfWeek >= 3 && currentDayOfWeek <= 5 ? 'late' : 'early');
+  }, []);
 
   // Effect to update current time every minute
   useEffect(() => {
