@@ -350,9 +350,12 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   };
 
   // Handle click on a time slot to CREATE a new task
-  const handleTimeSlotClick = (date: Date, slot: TimeSlot) => {
-    const startTime = new Date(date.getFullYear(), date.getMonth(), date.getDate(), slot.hour, slot.minute);
-    // Default to 30 minute duration (was 60)
+  const handleTimeSlotClick = (date: Date, slot: TimeSlot, e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relativeY = e.clientY - rect.top;
+    const isTopHalf = relativeY < rect.height / 2;
+
+    const startTime = new Date(date.getFullYear(), date.getMonth(), date.getDate(), slot.hour, slot.minute + (isTopHalf ? 0 : 15));
     const endTime = new Date(startTime.getTime() + 30 * 60 * 1000); 
 
     // Set default times for the modal
@@ -671,7 +674,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                       dragOverSlot === `${day.toISOString()}-${slot.hour}-${slot.minute}-0` || 
                       dragOverSlot === `${day.toISOString()}-${slot.hour}-${slot.minute}-15` ? 'bg-blue-100' : ''
                     }`}
-                    onClick={() => handleTimeSlotClick(day, slot)}
+                    onClick={(e) => handleTimeSlotClick(day, slot, e)}
                     onDragOver={(e) => {
                       e.preventDefault();
                       const rect = e.currentTarget.getBoundingClientRect();
