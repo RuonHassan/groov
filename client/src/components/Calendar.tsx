@@ -804,7 +804,8 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                             touchAction: 'none',
                             WebkitTouchCallout: 'none', // Prevent iOS callout
                             WebkitUserSelect: 'none', // Prevent text selection
-                            userSelect: 'none' // Prevent text selection
+                            userSelect: 'none', // Prevent text selection
+                            opacity: isCompleted ? '0.6' : '1', // Add lower opacity for completed tasks
                           }}
                           draggable={!isGoogleEvent && !isCompleted}
                           onTouchStart={(e) => !isGoogleEvent && handleTouchStart(e, item as Task, bgColor || '#3b82f6')}
