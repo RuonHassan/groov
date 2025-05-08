@@ -702,6 +702,11 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
 
                       let taskClasses = "absolute rounded p-1 text-xs overflow-hidden z-10 shadow-sm transition-colors duration-150 ease-in-out";
 
+                      // Add smaller text class for 15-minute tasks
+                      if (durationInMinutes <= 15) {
+                        taskClasses += " text-[10px] leading-[10px] p-[2px]";
+                      }
+
                       if (isCompleted) {
                         taskClasses += " bg-gray-200 text-gray-500 border border-gray-200 cursor-default";
                       } else {

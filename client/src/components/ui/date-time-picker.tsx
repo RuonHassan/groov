@@ -97,12 +97,10 @@ export function RangeTimePicker({
         <PopoverContent 
           className="w-auto p-0 z-[9999]" 
           onPointerDownOutside={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
+            setDateOpen(false);
           }}
           onInteractOutside={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
+            setDateOpen(false);
           }}
           side="bottom"
           sideOffset={4}
@@ -153,12 +151,10 @@ export function RangeTimePicker({
         <PopoverContent 
           className="w-auto p-3 z-[9999]" 
           onPointerDownOutside={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
+            setTimeOpen(false);
           }}
           onInteractOutside={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
+            setTimeOpen(false);
           }}
           side="bottom"
           sideOffset={4}

@@ -261,7 +261,7 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
                   Delete
                 </Button>
               )}
-              <Button type="submit" className="w-full sm:w-auto">
+              <Button type="submit" className="w-auto">
                 {isEditing ? "Save Changes" : "Create Task"}
               </Button>
             </DialogFooter>
