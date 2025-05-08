@@ -30,7 +30,46 @@ interface GoogleEvent {
   start: { dateTime: string };
   end: { dateTime: string };
   colorId?: string;
+  attendees?: {
+    email: string;
+    displayName?: string;
+    responseStatus?: string;
+  }[];
+  organizer?: {
+    email: string;
+  };
 }
+
+// Helper function to check if an event has external attendees
+const hasExternalAttendees = (event: GoogleEvent) => {
+  if (!event.attendees || event.attendees.length === 0) return false;
+  
+  // Get the organizer's email domain
+  const organizerEmail = event.organizer?.email;
+  if (!organizerEmail) return false;
+
+  // Skip if organizer is a group/resource calendar
+  if (organizerEmail.includes('group.calendar.google.com') || 
+      organizerEmail.includes('resource.calendar.google.com')) {
+    return false;
+  }
+
+  // Get the organization's base domain (e.g., 'beauhurst.com')
+  const organizerDomain = organizerEmail.split('@')[1].split('.').slice(-2).join('.');
+
+  // Check if any attendee has a different domain
+  return event.attendees.some(attendee => {
+    const email = attendee.email;
+    // Skip group calendars and room resources
+    if (email.includes('group.calendar.google.com') || 
+        email.includes('resource.calendar.google.com')) {
+      return false;
+    }
+    // Check if attendee's domain is different from organizer's
+    const attendeeDomain = email.split('@')[1].split('.').slice(-2).join('.');
+    return attendeeDomain !== organizerDomain;
+  });
+};
 
 // Generate time slots from 8 AM to 6 PM
 function generateTimeSlots(): TimeSlot[] {
@@ -110,6 +149,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   const [mobileViewOffset, setMobileViewOffset] = useState<'early' | 'late'>('early'); // 'early' for Mon-Wed, 'late' for Wed-Fri
   const { user } = useAuth();
   const [defaultGcalColor, setDefaultGcalColor] = useState("#B1C29E");
+  const [externalMeetingColor, setExternalMeetingColor] = useState("#F4A261");
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
   const { updateTask } = useTaskContext();
@@ -229,28 +269,33 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
     fetchGoogleEvents();
   }, [isConnected, calendars, currentDate]); // Only depend on isConnected, calendars, and currentDate
 
-  // Fetch user's default Google Calendar event color
+  // Fetch user's default colors
   useEffect(() => {
-    const fetchDefaultColor = async () => {
+    const fetchDefaultColors = async () => {
       if (!user?.id) return;
 
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('default_gcal_color')
+          .select('default_gcal_color, external_meeting_color')
           .eq('id', user.id)
           .single();
 
         if (error) throw error;
-        if (data?.default_gcal_color) {
-          setDefaultGcalColor(data.default_gcal_color);
+        if (data) {
+          if (data.default_gcal_color) {
+            setDefaultGcalColor(data.default_gcal_color);
+          }
+          if (data.external_meeting_color) {
+            setExternalMeetingColor(data.external_meeting_color);
+          }
         }
       } catch (error) {
-        console.error('Error fetching default Google Calendar color:', error);
+        console.error('Error fetching default colors:', error);
       }
     };
 
-    fetchDefaultColor();
+    fetchDefaultColors();
   }, [user?.id]);
 
   const formatWeekdayHeader = (date: Date) => format(date, 'EEE');
@@ -710,7 +755,9 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                       if (isCompleted) {
                         taskClasses += " bg-gray-200 text-gray-500 border border-gray-200 cursor-default";
                       } else {
-                        const bgColor = isGoogleEvent ? defaultGcalColor : (item.color || '#3b82f6');
+                        const bgColor = isGoogleEvent ? 
+                          hasExternalAttendees(item as GoogleEvent) ? externalMeetingColor : defaultGcalColor 
+                          : item.color || '#3b82f6';
                         const textColor = isLightColor(bgColor) ? 'text-gray-900' : 'text-white';
                         taskClasses += ` ${textColor} hover:opacity-90 ${isGoogleEvent ? 'cursor-default' : 'cursor-pointer'}`;
                       }
@@ -733,7 +780,9 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                         left = 1 + (index * width);
                       }
 
-                      const bgColor = isCompleted ? undefined : (isGoogleEvent ? defaultGcalColor : item.color || '#3b82f6');
+                      const bgColor = isCompleted ? undefined : (isGoogleEvent ? 
+                        hasExternalAttendees(item as GoogleEvent) ? externalMeetingColor : defaultGcalColor 
+                        : item.color || '#3b82f6');
 
                       return (
                         <div
