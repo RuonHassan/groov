@@ -114,7 +114,7 @@ export default function TaskGrid() {
       const payload: Record<string, any> = {
         title: quickTaskTitle,
         start_time: taskDate.toISOString(),
-        color: "#3b82f6", // Default blue
+        color: "#6C584C", // Default brown
       };
 
       try {

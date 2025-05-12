@@ -248,7 +248,7 @@ export default function AddTaskModal({ open, onClose, task, isEditing = false, d
                 </FormItem>
             )} />
             
-            <DialogFooter className="pt-4 flex justify-between items-center gap-2">
+            <DialogFooter className="pt-4 flex justify-right items-center gap-2">
               {isEditing && (
                 <Button
                   type="button"
