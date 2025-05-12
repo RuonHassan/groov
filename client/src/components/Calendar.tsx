@@ -112,7 +112,7 @@ const roundToNearest15Minutes = (date: Date): Date => {
 };
 
 // Helper function to calculate task position from drag event
-const calculateTaskPosition = (event: DragEvent, timeSlotElement: HTMLElement, date: Date): { startTime: Date, endTime: Date } | null => {
+const calculateTaskPosition = (event: DragEvent, timeSlotElement: HTMLElement, date: Date, task: Task): { startTime: Date, endTime: Date } | null => {
   const rect = timeSlotElement.getBoundingClientRect();
   const relativeY = event.clientY - rect.top;
   const percentageInSlot = relativeY / rect.height;
@@ -128,9 +128,14 @@ const calculateTaskPosition = (event: DragEvent, timeSlotElement: HTMLElement, d
   const startTime = new Date(date);
   startTime.setHours(hour, slotMinute + (isFirstBlock ? 0 : 15));
   
-  // End time is 30 minutes after start time
+  // Calculate the original duration
+  const originalStart = parseISO(task.start_time!);
+  const originalEnd = parseISO(task.end_time!);
+  const durationInMinutes = (originalEnd.getTime() - originalStart.getTime()) / (1000 * 60);
+  
+  // Create end time by adding the original duration
   const endTime = new Date(startTime);
-  endTime.setMinutes(endTime.getMinutes() + 30);
+  endTime.setMinutes(endTime.getMinutes() + durationInMinutes);
   
   return { startTime, endTime };
 };
@@ -524,8 +529,15 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
 
       const startTime = new Date(day);
       startTime.setHours(hour, minute + (isTopHalf ? 0 : 15));
+
+      // Calculate the original duration
+      const originalStart = parseISO(touchDragTask.start_time!);
+      const originalEnd = parseISO(touchDragTask.end_time!);
+      const durationInMinutes = (originalEnd.getTime() - originalStart.getTime()) / (1000 * 60);
+
+      // Create end time by adding the original duration
       const endTime = new Date(startTime);
-      endTime.setMinutes(endTime.getMinutes() + 30);
+      endTime.setMinutes(endTime.getMinutes() + durationInMinutes);
 
       try {
         await updateTask(touchDragTask.id, {
@@ -688,7 +700,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                       setDragOverSlot(null);
                       if (!draggedTask) return;
 
-                      const newTimes = calculateTaskPosition(e.nativeEvent, e.currentTarget, day);
+                      const newTimes = calculateTaskPosition(e.nativeEvent, e.currentTarget, day, draggedTask);
                       if (!newTimes) return;
 
                       // Update the task with new times
@@ -805,7 +817,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                             WebkitTouchCallout: 'none', // Prevent iOS callout
                             WebkitUserSelect: 'none', // Prevent text selection
                             userSelect: 'none', // Prevent text selection
-                            opacity: isCompleted ? '0.6' : '1', // Add lower opacity for completed tasks
+                            opacity: isCompleted ? '0.6' : '0.9', // Add opacity to all events, with completed tasks being more transparent
                           }}
                           draggable={!isGoogleEvent && !isCompleted}
                           onTouchStart={(e) => !isGoogleEvent && handleTouchStart(e, item as Task, bgColor || '#3b82f6')}
