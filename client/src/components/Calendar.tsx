@@ -91,7 +91,6 @@ const hasExternalAttendees = (event: GoogleEvent) => {
     const attendeeDomain = email.split('@')[1].split('.').slice(-2).join('.');
     return attendeeDomain !== organizerDomain;
   });
-};
 
 // Generate time slots from 8 AM to 6 PM
 function generateTimeSlots(): TimeSlot[] {
