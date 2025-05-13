@@ -760,7 +760,8 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                     />
                     {timeIndicator}
                     {itemsInSlot.map((item, index, array) => {
-                    // Use dateTime if present; otherwise fall back to the all-day date
+                    const isGoogleEvent = 'summary' in item;
+                    const title = isGoogleEvent ? item.summary : item.title;
                     const rawStart = isGoogleEvent
                       ? (item.start.dateTime ?? item.start.date ?? '')
                       : item.start_time!;
