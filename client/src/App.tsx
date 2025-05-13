@@ -64,7 +64,7 @@ function Router() {
       </Route>
 
       {/* 404 route */}
-      <Route path="*">
+      <Route default>
         <NotFound />
       </Route>
     </Switch>
