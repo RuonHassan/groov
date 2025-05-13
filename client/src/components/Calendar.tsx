@@ -27,8 +27,8 @@ interface TimeSlot {
 interface GoogleEvent {
   id: string;
   summary: string;
-  start: { dateTime: string };
-  end: { dateTime: string };
+  start: { dateTime?: string; date?: string };
+  end:   { dateTime?: string; date?: string };
   colorId?: string;
   attendees?: {
     email: string;
@@ -350,18 +350,28 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
     return Math.max(0, Math.min(100, offsetPercent)); // Clamp between 0% and 100%
   };
 
-  // Get tasks and events that start within a specific day and time slot
   const getItemsForTimeSlot = (date: Date, timeSlot: TimeSlot) => {
-    const tasksInSlot = tasks.filter(task => 
-      task.start_time && task.end_time && isItemInTimeSlot(task.start_time, task.end_time, date, timeSlot)
-    );
+  const tasksInSlot = tasks.filter(task =>
+    task.start_time &&
+    task.end_time &&
+    isItemInTimeSlot(task.start_time, task.end_time, date, timeSlot)
+  );
 
-    const eventsInSlot = googleEvents.filter(event => 
-      event.start?.dateTime && event.end?.dateTime && isItemInTimeSlot(event.start.dateTime, event.end.dateTime, date, timeSlot)
-    );
+  const eventsInSlot = googleEvents.filter(event => {
+    // Use dateTime if present, otherwise fall back to all-day date
+    const rawStart = event.start.dateTime ?? event.start.date;
+    const rawEnd   = event.end.dateTime   ?? event.end.date;
 
-    return [...tasksInSlot, ...eventsInSlot];
-  };
+    // Only include if we have both start and end strings
+    if (!rawStart || !rawEnd) {
+      return false;
+    }
+
+    return isItemInTimeSlot(rawStart, rawEnd, date, timeSlot);
+  });
+
+  return [...tasksInSlot, ...eventsInSlot];
+};
 
   // Handle click on a time slot to CREATE a new task
   const handleTimeSlotClick = (date: Date, slot: TimeSlot, e: React.MouseEvent<HTMLDivElement>) => {
@@ -752,10 +762,14 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                     {itemsInSlot.map((item, index, array) => {
                       const isGoogleEvent = 'summary' in item;
                       const title = isGoogleEvent ? item.summary : item.title;
-                      const start = isGoogleEvent ? item.start.dateTime : item.start_time!;
-                      const end = isGoogleEvent ? item.end.dateTime : item.end_time!;
-                      const startDate = parseISO(start);
-                      const endDate = parseISO(end);
+                      const start = isGoogleEvent
+                        ? (item.start.dateTime ?? item.start.date!)
+                        : item.start_time!;
+                    const end = isGoogleEvent
+                      ? (item.end.dateTime   ?? item.end.date!)
+                      : item.end_time!;
+                    const startDate = parseISO(start);
+                    const endDate   = parseISO(end);
                       const isCompleted = !isGoogleEvent && !!item.completed_at;
 
                       const startMinute = getMinutes(startDate);
