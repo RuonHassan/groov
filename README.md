@@ -55,6 +55,25 @@ The project follows a monorepo-like structure with shared code:
 │   │   │   ├── main.tsx
 │   │   │   ├── index.css
 │   │   │   ├── components/   # Reusable UI components (including Shadcn)
+│   │   │   │   ├── ui/      # Shadcn UI components
+│   │   │   │   └── Calendar/ # Calendar component module
+│   │   │   │       ├── components/  # Calendar subcomponents
+│   │   │   │       │   ├── TimeGrid.tsx      # Main grid display
+│   │   │   │       │   ├── CalendarHeader.tsx # Calendar header
+│   │   │   │       │   ├── CurrentTimeLine.tsx # Current time indicator
+│   │   │   │       │   ├── EventItem.tsx      # Google Calendar event display
+│   │   │   │       │   └── TaskItem.tsx       # Task item display
+│   │   │   │       ├── hooks/     # Calendar-specific hooks
+│   │   │   │       │   ├── useCalendarDrag.ts  # Drag-and-drop functionality
+│   │   │   │       │   ├── useCalendarTouch.ts # Touch interactions
+│   │   │   │       │   └── useVisibleDays.ts   # Visible days management
+│   │   │   │       ├── utils/    # Calendar utilities
+│   │   │   │       │   ├── types.ts      # Type definitions
+│   │   │   │       │   ├── timeUtils.ts  # Time-related utilities
+│   │   │   │       │   ├── eventUtils.ts # Event handling utilities
+│   │   │   │       │   └── colorUtils.ts # Color management utilities
+│   │   │   │       ├── Calendar.tsx      # Main calendar component
+│   │   │   │       └── index.ts          # Module entry point
 │   │   │   ├── contexts/     # React contexts (if any)
 │   │   │   ├── hooks/        # Custom React hooks
 │   │   │   ├── lib/          # Utility functions, API client
@@ -119,6 +138,33 @@ The project follows a monorepo-like structure with shared code:
 *   **Temporal Sectioning:** Tasks automatically organized into Today, Tomorrow, and Future sections
 *   **Context Filtering:** Filter tasks by context, energy level, or priority
 *   **Project Grouping:** Group related tasks as projects
+
+### Calendar Components
+
+- **Weekly Calendar**: 7-day view with hourly time slots, composed of:
+  - **Main Components**:
+    - `Calendar.tsx`: Core calendar component orchestrating all features
+    - `TimeGrid.tsx`: Displays the time-based grid system
+    - `CalendarHeader.tsx`: Renders date headers
+    - `CurrentTimeLine.tsx`: Shows current time indicator
+    - `EventItem.tsx`: Displays Google Calendar events
+    - `TaskItem.tsx`: Displays task items
+  
+  - **Custom Hooks**:
+    - `useCalendarDrag`: Manages drag-and-drop functionality
+    - `useCalendarTouch`: Handles mobile touch interactions
+    - `useVisibleDays`: Controls visible date range
+  
+  - **Utilities**:
+    - `types.ts`: Type definitions for TimeSlot and GoogleEvent
+    - `timeUtils.ts`: Time-related calculations and constants
+    - `eventUtils.ts`: Event handling and positioning
+    - `colorUtils.ts`: Color management for events and tasks
+
+- **Calendar Event Form**: Create and edit calendar events
+- **Task Connection**: Associate calendar events with tasks
+
+### Pomodoro Interface
 
 ## API Endpoints (`/server/routes.ts`)
 

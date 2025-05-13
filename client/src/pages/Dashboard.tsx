@@ -1,6 +1,6 @@
 import { useTaskContext } from "@/contexts/TaskContext";
 import TaskGrid from "@/components/TaskGrid";
-import CalendarComponent from "@/components/Calendar";
+import Calendar from "@/components/Calendar/Calendar";
 
 export default function Dashboard() {
   const { isLoading, tasks } = useTaskContext();
@@ -15,7 +15,7 @@ export default function Dashboard() {
 
         {/* Calendar Section - Hidden on Mobile */}
         <div className="hidden md:block bg-white rounded-lg shadow overflow-y-auto">
-          <CalendarComponent 
+          <Calendar 
             tasks={tasks}
           />
         </div>

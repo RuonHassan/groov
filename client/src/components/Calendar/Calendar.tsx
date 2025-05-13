@@ -1,96 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO, isWithinInterval, isValid, getHours, getMinutes, getDay, addWeeks, subWeeks, addMinutes } from 'date-fns';
+import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO, getHours, getMinutes, getDay } from 'date-fns';
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Task } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useWeek } from "@/contexts/WeekContext";
 import { supabase } from "@/lib/supabaseClient";
-import AddTaskModal from './AddTaskModal';
-import GoogleEventModal from './GoogleEventModal';
+import AddTaskModal from '../AddTaskModal';
+import GoogleEventModal from '../GoogleEventModal';
 import { useGoogleCalendar } from '@/contexts/GoogleCalendarContext';
 import { useAuth } from "@/contexts/AuthContext";
 import { useTaskContext } from "@/contexts/TaskContext";
 
-// Current time indicator calculation constants
-const CALENDAR_START_HOUR = 8;
-const CALENDAR_END_HOUR = 19; // Extended to 7 PM to include the last slot
-const TOTAL_CALENDAR_MINUTES = (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 60;
-
-// Time slot definition
-interface TimeSlot {
-  hour: number;
-  minute: number;
-  formatted: string;
-}
-
-interface GoogleEvent {
-  id: string;
-  summary: string;
-  start: { dateTime?: string; date?: string };
-  end:   { dateTime?: string; date?: string };
-  colorId?: string;
-  attendees?: {
-    email: string;
-    displayName?: string;
-    responseStatus?: string;
-  }[];
-  organizer?: {
-    email: string;
-  };
-}
-
-// Helper function to check if an event has external attendees
-const hasExternalAttendees = (event: GoogleEvent) => {
-  if (!event.attendees || event.attendees.length === 0) return false;
-  
-  // Get the organizer's email domain
-  const organizerEmail = event.organizer?.email;
-  if (!organizerEmail) return false;
-
-  // Skip if organizer is a group/resource calendar
-  if (organizerEmail.includes('group.calendar.google.com') || 
-      organizerEmail.includes('resource.calendar.google.com')) {
-    return false;
-  }
-
-  // Get the organization's base domain (e.g., 'beauhurst.com')
-  const organizerDomain = organizerEmail.split('@')[1].split('.').slice(-2).join('.');
-
-  // Check if any attendee has a different domain
-  return event.attendees.some(attendee => {
-    const email = attendee.email;
-    // Skip group calendars and room resources
-    if (email.includes('group.calendar.google.com') || 
-        email.includes('resource.calendar.google.com')) {
-      return false;
-    }
-    // Check if attendee's domain is different from organizer's
-    const attendeeDomain = email.split('@')[1].split('.').slice(-2).join('.');
-    return attendeeDomain !== organizerDomain;
-  });
-};
-
-// Generate time slots from 8 AM to 6 PM
-function generateTimeSlots(): TimeSlot[] {
-  const slots: TimeSlot[] = [];
-  for (let hour = CALENDAR_START_HOUR; hour < CALENDAR_END_HOUR; hour++) {
-    // Add the hour slot (XX:00)
-    slots.push({
-      hour,
-      minute: 0,
-      formatted: format(new Date().setHours(hour, 0), 'h:mm a')
-    });
-    
-    // Add the half-hour slot (XX:30)
-    slots.push({
-      hour,
-      minute: 30,
-      formatted: format(new Date().setHours(hour, 30), 'h:mm a')
-    });
-  }
-  return slots;
-}
+// Import utilities
+import { TimeSlot, GoogleEvent } from './utils/types';
+import { 
+  CALENDAR_START_HOUR, 
+  CALENDAR_END_HOUR, 
+  TOTAL_CALENDAR_MINUTES, 
+  generateTimeSlots, 
+  roundToNearest15Minutes, 
+  isItemInTimeSlot 
+} from './utils/timeUtils';
+import { 
+  hasExternalAttendees, 
+  calculateTaskPosition, 
+  isLightColor 
+} from './utils/eventUtils';
 
 const timeSlots = generateTimeSlots();
 
@@ -100,45 +36,6 @@ interface CalendarProps {
   onRefetch?: () => void;
   scheduledTaskId?: number | null;
 }
-
-// Helper function to round a date to the nearest 15 minutes
-const roundToNearest15Minutes = (date: Date): Date => {
-  const minutes = date.getMinutes();
-  const remainder = minutes % 15;
-  const roundedMinutes = remainder < 8 ? minutes - remainder : minutes + (15 - remainder);
-  const newDate = new Date(date);
-  newDate.setMinutes(roundedMinutes);
-  return newDate;
-};
-
-// Helper function to calculate task position from drag event
-const calculateTaskPosition = (event: DragEvent, timeSlotElement: HTMLElement, date: Date, task: Task): { startTime: Date, endTime: Date } | null => {
-  const rect = timeSlotElement.getBoundingClientRect();
-  const relativeY = event.clientY - rect.top;
-  const percentageInSlot = relativeY / rect.height;
-  
-  // Calculate if we're in the first or second 15-minute block
-  const isFirstBlock = percentageInSlot < 0.5;
-  
-  // Get the base time from the time slot
-  const hour = parseInt(timeSlotElement.dataset.hour || "0");
-  const slotMinute = parseInt(timeSlotElement.dataset.minute || "0");
-  
-  // Create the new start time
-  const startTime = new Date(date);
-  startTime.setHours(hour, slotMinute + (isFirstBlock ? 0 : 15));
-  
-  // Calculate the original duration
-  const originalStart = parseISO(task.start_time!);
-  const originalEnd = parseISO(task.end_time!);
-  const durationInMinutes = (originalEnd.getTime() - originalStart.getTime()) / (1000 * 60);
-  
-  // Create end time by adding the original duration
-  const endTime = new Date(startTime);
-  endTime.setMinutes(endTime.getMinutes() + durationInMinutes);
-  
-  return { startTime, endTime };
-};
 
 export default function Calendar({ tasks, onRefetch, scheduledTaskId }: CalendarProps) {
   const { currentDate, goToPreviousWeek, goToNextWeek } = useWeek();
@@ -272,7 +169,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
     };
 
     fetchGoogleEvents();
-  }, [isConnected, calendars, currentDate]); // Only depend on isConnected, calendars, and currentDate
+  }, [isConnected, calendars, currentDate]);
 
   // Fetch user's default colors
   useEffect(() => {
@@ -306,63 +203,28 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   const formatWeekdayHeader = (date: Date) => format(date, 'EEE');
   const formatDateHeader = (date: Date) => format(date, 'd');
 
-  // Check if a task or event overlaps with a specific time slot
-  const isItemInTimeSlot = (startTime: string | null, endTime: string | null, date: Date, timeSlot: TimeSlot): boolean => {
-    if (!startTime || !endTime) return false;
-    
-    try {
-      const itemStart = parseISO(startTime);
-      const itemEnd = parseISO(endTime);
-      if (!isValid(itemStart) || !isValid(itemEnd)) return false;
-
-      const slotStart = new Date(date.getFullYear(), date.getMonth(), date.getDate(), timeSlot.hour, timeSlot.minute);
-      const slotEnd = new Date(slotStart.getTime() + 30 * 60 * 1000); // 30 minutes instead of 60
-
-      return itemStart < slotEnd && itemEnd > slotStart;
-    } catch (e) {
-      console.error("Error parsing dates:", e);
-      return false;
-    }
-  };
-
-  // Calculate the vertical offset for the current time indicator
-  const calculateTopOffset = (now: Date): number => {
-    const currentHour = getHours(now);
-    const currentMinute = getMinutes(now);
-
-    // Ensure time is within calendar bounds
-    if (currentHour < CALENDAR_START_HOUR || currentHour >= CALENDAR_END_HOUR) {
-      return -1; // Indicate it's outside the displayed range
-    }
-
-    const minutesFromStart = (currentHour - CALENDAR_START_HOUR) * 60 + currentMinute;
-    const offsetPercent = (minutesFromStart / TOTAL_CALENDAR_MINUTES) * 100;
-    
-    return Math.max(0, Math.min(100, offsetPercent)); // Clamp between 0% and 100%
-  };
-
   const getItemsForTimeSlot = (date: Date, timeSlot: TimeSlot) => {
-  const tasksInSlot = tasks.filter(task =>
-    task.start_time &&
-    task.end_time &&
-    isItemInTimeSlot(task.start_time, task.end_time, date, timeSlot)
-  );
+    const tasksInSlot = tasks.filter(task =>
+      task.start_time &&
+      task.end_time &&
+      isItemInTimeSlot(task.start_time, task.end_time, date, timeSlot)
+    );
 
-  const eventsInSlot = googleEvents.filter(event => {
-    // Use dateTime if present, otherwise fall back to all-day date
-    const rawStart = event.start.dateTime ?? event.start.date;
-    const rawEnd   = event.end.dateTime   ?? event.end.date;
+    const eventsInSlot = googleEvents.filter(event => {
+      // Use dateTime if present, otherwise fall back to all-day date
+      const rawStart = event.start.dateTime ?? event.start.date;
+      const rawEnd   = event.end.dateTime   ?? event.end.date;
 
-    // Only include if we have both start and end strings
-    if (!rawStart || !rawEnd) {
-      return false;
-    }
+      // Only include if we have both start and end strings
+      if (!rawStart || !rawEnd) {
+        return false;
+      }
 
-    return isItemInTimeSlot(rawStart, rawEnd, date, timeSlot);
-  });
+      return isItemInTimeSlot(rawStart, rawEnd, date, timeSlot);
+    });
 
-  return [...tasksInSlot, ...eventsInSlot];
-};
+    return [...tasksInSlot, ...eventsInSlot];
+  };
 
   // Handle click on a time slot to CREATE a new task
   const handleTimeSlotClick = (date: Date, slot: TimeSlot, e: React.MouseEvent<HTMLDivElement>) => {
@@ -393,14 +255,6 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   const getTaskColor = (task: Task): string => {
     // Use task color directly or default to blue
     return task.color || '#3b82f6';
-  };
-
-  // Helper function to check if a color is light
-  const isLightColor = (color: string): boolean => {
-    const c = color.substring(1);
-    const rgb = parseInt(c, 16);
-    const luma = (rgb >> 16) * 0.299 + (rgb >> 8 & 255) * 0.587 + (rgb & 255) * 0.114;
-    return luma > 128;
   };
 
   // Handle click on a Google Calendar event
@@ -751,20 +605,20 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                     />
                     {timeIndicator}
                     {itemsInSlot.map((item, index, array) => {
-                    const isGoogleEvent = 'summary' in item;
-                    const title = isGoogleEvent ? item.summary : item.title;
-                    const rawStart = isGoogleEvent
-                      ? (item.start.dateTime ?? item.start.date ?? '')
-                      : item.start_time!;
-                    const rawEnd   = isGoogleEvent
-                      ? (item.end.dateTime   ?? item.end.date   ?? '')
-                      : item.end_time!;
-                    if (!rawStart || !rawEnd) {
-                      return null;
-                    }
-                    
-                    const startDate = parseISO(rawStart);
-                    const endDate   = parseISO(rawEnd);
+                      const isGoogleEvent = 'summary' in item;
+                      const title = isGoogleEvent ? item.summary : item.title;
+                      const rawStart = isGoogleEvent
+                        ? (item.start.dateTime ?? item.start.date ?? '')
+                        : item.start_time!;
+                      const rawEnd   = isGoogleEvent
+                        ? (item.end.dateTime   ?? item.end.date   ?? '')
+                        : item.end_time!;
+                      if (!rawStart || !rawEnd) {
+                        return null;
+                      }
+                      
+                      const startDate = parseISO(rawStart);
+                      const endDate   = parseISO(rawEnd);
                       const isCompleted = !isGoogleEvent && !!item.completed_at;
 
                       const startMinute = getMinutes(startDate);
@@ -922,4 +776,4 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
       )}
     </div>
   );
-}
+} 

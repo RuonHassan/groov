@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Calendar } from "lucide-react";
-import CalendarComponent from "@/components/Calendar";
+import { Calendar as CalendarIcon } from "lucide-react";
+import Calendar from "@/components/Calendar/Calendar";
 import { Task } from "@shared/schema";
 import { useTaskContext } from "@/contexts/TaskContext";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,7 @@ export default function CalendarPage() {
           <p className="text-gray-600 mb-4">There was a problem loading your tasks.</p>
           <Button asChild>
             <Link to="/" className="flex items-center">
-              <Calendar className="mr-2 h-4 w-4" />
+              <CalendarIcon className="mr-2 h-4 w-4" />
               Back to Tasks
             </Link>
           </Button>
@@ -60,7 +60,7 @@ export default function CalendarPage() {
     <div className="min-h-screen flex flex-col bg-white text-gray-800">
       <main className="flex-1 flex flex-col">
         <div className="flex-shrink-0">
-          <CalendarComponent 
+          <Calendar 
             key={key}
             tasks={tasks}
             onRefetch={handleRefetch}
