@@ -45,7 +45,7 @@ const hasExternalAttendees = (event: GoogleEvent) => {
   // No attendees → no externals
   if (!event.attendees?.length) return false;
 
-  // Grab organizer email, bail if missing or malformed
+  // Grab organizer email; bail if missing or malformed
   const organizerEmail = event.organizer?.email;
   if (!organizerEmail || !organizerEmail.includes('@')) return false;
 
@@ -55,9 +55,11 @@ const hasExternalAttendees = (event: GoogleEvent) => {
     .split('.')
     .slice(-2)
     .join('.');
+
   // See if any attendee has a different domain
   return event.attendees.some(attendee => {
     const email = attendee.email;
+
     // Skip malformed, group, or resource addresses
     if (
       !email.includes('@') ||
@@ -66,12 +68,14 @@ const hasExternalAttendees = (event: GoogleEvent) => {
     ) {
       return false;
     }
+
     // Compute attendee’s base domain
     const attendeeDomain = email
       .split('@')[1]
       .split('.')
       .slice(-2)
       .join('.');
+
     return attendeeDomain !== organizerDomain;
   });
 };
