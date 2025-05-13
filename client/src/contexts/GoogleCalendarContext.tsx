@@ -197,7 +197,6 @@ export function GoogleCalendarProvider({ children }: { children: React.ReactNode
         singleEvents: true,
         orderBy: 'startTime',
         maxResults: 100,
-        fields: 'items(id,summary,start,end,colorId,attendees,organizer)'
       });
 
       return response.result.items || [];
