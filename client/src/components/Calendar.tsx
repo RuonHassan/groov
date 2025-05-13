@@ -760,16 +760,19 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                     />
                     {timeIndicator}
                     {itemsInSlot.map((item, index, array) => {
-                      const isGoogleEvent = 'summary' in item;
-                      const title = isGoogleEvent ? item.summary : item.title;
-                      const start = isGoogleEvent
-                        ? (item.start.dateTime ?? item.start.date!)
-                        : item.start_time!;
-                    const end = isGoogleEvent
-                      ? (item.end.dateTime   ?? item.end.date!)
+                    // Use dateTime if present; otherwise fall back to the all-day date
+                    const rawStart = isGoogleEvent
+                      ? (item.start.dateTime ?? item.start.date ?? '')
+                      : item.start_time!;
+                    const rawEnd   = isGoogleEvent
+                      ? (item.end.dateTime   ?? item.end.date   ?? '')
                       : item.end_time!;
-                    const startDate = parseISO(start);
-                    const endDate   = parseISO(end);
+                    if (!rawStart || !rawEnd) {
+                      return null;
+                    }
+                    
+                    const startDate = parseISO(rawStart);
+                    const endDate   = parseISO(rawEnd);
                       const isCompleted = !isGoogleEvent && !!item.completed_at;
 
                       const startMinute = getMinutes(startDate);
