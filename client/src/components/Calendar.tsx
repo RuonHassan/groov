@@ -42,40 +42,31 @@ interface GoogleEvent {
 
 // Helper function to check if an event has external attendees
 const hasExternalAttendees = (event: GoogleEvent) => {
-  // No attendees → no externals
-  if (!event.attendees?.length) return false;
-
-  // Grab organizer email; bail if missing or malformed
+  if (!event.attendees || event.attendees.length === 0) return false;
+  
+  // Get the organizer's email domain
   const organizerEmail = event.organizer?.email;
-  if (!organizerEmail || !organizerEmail.includes('@')) return false;
+  if (!organizerEmail) return false;
 
-  // Compute organizer’s base domain (e.g. “beauhurst.com”)
-  const organizerDomain = organizerEmail
-    .split('@')[1]
-    .split('.')
-    .slice(-2)
-    .join('.');
+  // Skip if organizer is a group/resource calendar
+  if (organizerEmail.includes('group.calendar.google.com') || 
+      organizerEmail.includes('resource.calendar.google.com')) {
+    return false;
+  }
 
-  // See if any attendee has a different domain
+  // Get the organization's base domain (e.g., 'beauhurst.com')
+  const organizerDomain = organizerEmail.split('@')[1].split('.').slice(-2).join('.');
+
+  // Check if any attendee has a different domain
   return event.attendees.some(attendee => {
     const email = attendee.email;
-
-    // Skip malformed, group, or resource addresses
-    if (
-      !email.includes('@') ||
-      email.includes('group.calendar.google.com') ||
-      email.includes('resource.calendar.google.com')
-    ) {
+    // Skip group calendars and room resources
+    if (email.includes('group.calendar.google.com') || 
+        email.includes('resource.calendar.google.com')) {
       return false;
     }
-
-    // Compute attendee’s base domain
-    const attendeeDomain = email
-      .split('@')[1]
-      .split('.')
-      .slice(-2)
-      .join('.');
-
+    // Check if attendee's domain is different from organizer's
+    const attendeeDomain = email.split('@')[1].split('.').slice(-2).join('.');
     return attendeeDomain !== organizerDomain;
   });
 };
