@@ -163,26 +163,12 @@ export default function GoogleEventModal({ open, onClose, event }: GoogleEventMo
   };
 
   // Get the first few participant names for preview
-  // Get the first few participant names for preview
-const getParticipantsPreview = () => {
-  if (!event.attendees || event.attendees.length === 0) return '';
-  const firstThree = event.attendees.slice(0, 3);
-  // Only split on '@' when present; otherwise fall back to full email
-  const names = firstThree
-    .map(a => {
-      if (a.displayName) {
-        return a.displayName;
-      }
-      if (a.email.includes('@')) {
-        return a.email.split('@')[0];
-      }
-      return a.email;
-    })
-    .join(', ');
-  return event.attendees.length > 3
-    ? `${names} and ${event.attendees.length - 3} more`
-    : names;
-};
+  const getParticipantsPreview = () => {
+    if (!event.attendees || event.attendees.length === 0) return '';
+    const firstThree = event.attendees.slice(0, 3);
+    const names = firstThree.map(a => a.displayName || a.email.split('@')[0]).join(', ');
+    return event.attendees.length > 3 ? `${names} and ${event.attendees.length - 3} more` : names;
+  };
 
   const zoomInfo = extractZoomInfo();
   const cleanDescription = formatDescription();
