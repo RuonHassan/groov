@@ -594,14 +594,22 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                   >
                     {/* Split the slot into two 15-minute sections */}
                     <div 
-                      className={`absolute top-0 left-0 right-0 h-1/2 hover:bg-blue-50 transition-colors ${
+                      className={`absolute top-0 left-0 right-0 h-1/2 hover:bg-blue-50 transition-colors z-[1] ${
                         dragOverSlot === `${day.toISOString()}-${slot.hour}-${slot.minute}-0` ? 'bg-blue-100' : ''
                       }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleTimeSlotClick(day, { ...slot, minute: slot.minute }, e);
+                      }}
                     />
                     <div 
-                      className={`absolute bottom-0 left-0 right-0 h-1/2 hover:bg-blue-50 transition-colors ${
+                      className={`absolute bottom-0 left-0 right-0 h-1/2 hover:bg-blue-50 transition-colors z-[1] ${
                         dragOverSlot === `${day.toISOString()}-${slot.hour}-${slot.minute}-15` ? 'bg-blue-100' : ''
                       }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleTimeSlotClick(day, { ...slot, minute: slot.minute + 15 }, e);
+                      }}
                     />
                     {timeIndicator}
                     {itemsInSlot.map((item, index, array) => {
