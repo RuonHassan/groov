@@ -80,22 +80,6 @@ const hasExternalAttendees = (event: GoogleEvent) => {
   });
 };
 
-  // Get the organization's base domain (e.g., 'beauhurst.com')
-  const organizerDomain = organizerEmail.split('@')[1].split('.').slice(-2).join('.');
-
-  // Check if any attendee has a different domain
-  return event.attendees.some(attendee => {
-    const email = attendee.email;
-    // Skip group calendars and room resources
-    if (email.includes('group.calendar.google.com') || 
-        email.includes('resource.calendar.google.com')) {
-      return false;
-    }
-    // Check if attendee's domain is different from organizer's
-    const attendeeDomain = email.split('@')[1].split('.').slice(-2).join('.');
-    return attendeeDomain !== organizerDomain;
-  });
-
 // Generate time slots from 8 AM to 6 PM
 function generateTimeSlots(): TimeSlot[] {
   const slots: TimeSlot[] = [];
