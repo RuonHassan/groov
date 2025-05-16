@@ -6,7 +6,7 @@ export default function Dashboard() {
   const { isLoading, tasks } = useTaskContext();
 
   return (
-    <div className="flex flex-col min-h-screen bg-white md:bg-gray-100">
+    <div className="flex flex-col min-h-screen bg-white md:bg-gray-200">
       <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-4 p-4">
         {/* Tasks Section - Always Visible */}
         <div className="overflow-y-auto bg-white md:rounded-lg md:shadow">
