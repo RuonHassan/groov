@@ -61,7 +61,7 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-white border-b-5 border-b-gray-800">
+    <header className="bg-white border-b-5 border-b-gray-900 shadow-lg">
       <div className="w-full mx-auto px-4">
         <div className="flex justify-between items-center h-14">
           {/* Left side - Navigation links */}
