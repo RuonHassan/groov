@@ -90,8 +90,8 @@ export default function LandingPage() {
       <header className="bg-black text-white fixed w-full top-0 z-50 py-3">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center relative">
-            {/* Center logo container */}
-            <div className="absolute left-1/2 -translate-x-1/2">
+            {/* Logo container - left on mobile, center on larger screens */}
+            <div className="md:absolute md:left-1/2 md:-translate-x-1/2">
               <img 
                 src="/groov.png" 
                 alt="Groov Logo" 
@@ -102,8 +102,8 @@ export default function LandingPage() {
                 }`}
               />
             </div>
-            {/* Empty div to maintain space on the left */}
-            <div className="w-20"></div>
+            {/* Empty div to maintain space on the left - only show on larger screens */}
+            <div className="hidden md:block w-20"></div>
             {/* Buttons on the right */}
             <div className="flex gap-2">
               <Link href="/login">
