@@ -86,8 +86,8 @@ export default function LandingPage() {
         {/* Background layers */}
         <div className="absolute inset-0">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-100/80 via-blue-50 to-purple-50 opacity-90 animate-gradient-slow"></div>
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,58,237,0.12),transparent_50%)]"></div>
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.12),transparent_50%)]"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,58,237,0.12),transparent_50%)]"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.12),transparent_50%)]"></div>
         </div>
 
         {/* Content */}
