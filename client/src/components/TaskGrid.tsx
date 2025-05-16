@@ -2,64 +2,150 @@ import { useState, useMemo } from "react";
 import { useTaskContext } from "@/contexts/TaskContext";
 import TaskCard from "./TaskCard";
 import NewTaskCard from "./NewTaskCard";
-import { AlertCircle, Plus, ChevronDown, ChevronRight, CheckCircle2 } from "lucide-react";
+import { AlertCircle, Plus, ChevronDown, ChevronRight, CheckCircle2, Clock } from "lucide-react";
 import { Task } from "@shared/schema";
-import { isToday, isTomorrow, parseISO, format, isValid, startOfDay, addMinutes, addDays as dfnsAddDays, isBefore, isSameDay, isAfter } from "date-fns";
+import { isToday, isTomorrow, parseISO, format, isValid, startOfDay, addMinutes, addDays as dfnsAddDays, isBefore, isSameDay, isAfter, getDay, getHours, set, getMinutes } from "date-fns";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import CompletedTasksPopup from "./CompletedTasksPopup";
+import { useGoogleCalendar } from "@/contexts/GoogleCalendarContext";
+import AutoSchedulePopup from "./AutoSchedulePopup";
+
+// Add type for calendar events
+type CalendarTimeSlot = {
+  start_time: string;
+  end_time: string;
+};
+
+// Constants for business hours
+const BUSINESS_START_HOUR = 9; // 9 AM
+const BUSINESS_END_HOUR = 17;  // 5 PM
+const MINUTES_INTERVAL = 15;   // 15-minute intervals
+
+// Helper function to round time to nearest 15-minute interval
+const roundToNearestInterval = (date: Date): Date => {
+  const minutes = getMinutes(date);
+  const roundedMinutes = Math.ceil(minutes / MINUTES_INTERVAL) * MINUTES_INTERVAL;
+  return set(date, { 
+    minutes: roundedMinutes >= 60 ? 0 : roundedMinutes,
+    seconds: 0, 
+    milliseconds: 0,
+    hours: roundedMinutes >= 60 ? getHours(date) + 1 : getHours(date)
+  });
+};
+
+// Helper function to get next business day
+const getNextBusinessDay = (date: Date): Date => {
+  let nextDay = dfnsAddDays(date, 1);
+  const dayOfWeek = getDay(nextDay);
+  
+  // If it's Saturday (6) or Sunday (0), move to Monday
+  if (dayOfWeek === 6) { // Saturday
+    nextDay = dfnsAddDays(nextDay, 2);
+  } else if (dayOfWeek === 0) { // Sunday
+    nextDay = dfnsAddDays(nextDay, 1);
+  }
+  
+  return startOfDay(nextDay);
+};
+
+// Helper function to check if time is within business hours
+const isWithinBusinessHours = (date: Date): boolean => {
+  const hour = getHours(date);
+  return hour >= BUSINESS_START_HOUR && hour < BUSINESS_END_HOUR;
+};
+
+// Helper function to get start of business hours for a given date
+const getStartOfBusinessHours = (date: Date): Date => {
+  return set(date, { hours: BUSINESS_START_HOUR, minutes: 0, seconds: 0, milliseconds: 0 });
+};
+
+// Helper function to get end of business hours for a given date
+const getEndOfBusinessHours = (date: Date): Date => {
+  return set(date, { hours: BUSINESS_END_HOUR, minutes: 0, seconds: 0, milliseconds: 0 });
+};
 
 // Helper function to find the next available 30-min slot
 // Returns null if no slot found within the day constraint
-const findNextAvailableSlot = (date: Date, existingTasks: Task[]): Date | null => {
-  let startTime = date;
-  const maxEndTime = dfnsAddDays(startOfDay(date), 1); // Don't schedule past midnight of the *initial* date
+const findNextAvailableSlot = (date: Date, existingEvents: (CalendarTimeSlot | Task)[]): Date | null => {
+  // First, round the start time to the next 15-minute interval
+  let startTime = roundToNearestInterval(date);
+  
+  // If current time is before business hours, start at beginning of business hours
+  if (getHours(startTime) < BUSINESS_START_HOUR) {
+    startTime = getStartOfBusinessHours(startTime);
+  }
+  
+  // If current time is after business hours or it's weekend, move to next business day
+  if (getHours(startTime) >= BUSINESS_END_HOUR || [0, 6].includes(getDay(startTime))) {
+    startTime = getStartOfBusinessHours(getNextBusinessDay(startTime));
+  }
 
-  // Check slots every 30 minutes
-  while (isBefore(startTime, maxEndTime)) {
+  // Maximum number of days to look ahead (e.g., 2 weeks)
+  const MAX_DAYS_TO_CHECK = 14;
+  let daysChecked = 0;
+
+  while (daysChecked < MAX_DAYS_TO_CHECK) {
+    // If we've reached end of business hours, move to next business day
+    if (getHours(startTime) >= BUSINESS_END_HOUR) {
+      startTime = getStartOfBusinessHours(getNextBusinessDay(startTime));
+      daysChecked++;
+      continue;
+    }
+
+    // Ensure we're always on a 15-minute interval
+    startTime = roundToNearestInterval(startTime);
     const endTime = addMinutes(startTime, 30);
     let slotOccupied = false;
 
-    // Check against existing tasks
-    for (const task of existingTasks) {
-      if (!task.start_time || !task.end_time) continue; // Skip tasks without times
+    // Check against existing events
+    for (const event of existingEvents) {
+      if (!event.start_time || !event.end_time) continue;
       try {
-        const taskStart = parseISO(task.start_time);
-        const taskEnd = parseISO(task.end_time);
-        if (!isValid(taskStart) || !isValid(taskEnd)) continue;
+        const eventStart = parseISO(event.start_time);
+        const eventEnd = parseISO(event.end_time);
+        if (!isValid(eventStart) || !isValid(eventEnd)) continue;
 
-        // Check for overlap: (TaskStart < SlotEnd) and (TaskEnd > SlotStart)
-        if (isBefore(taskStart, endTime) && isBefore(startTime, taskEnd)) {
+        // Check for overlap
+        if (isBefore(eventStart, endTime) && isBefore(startTime, eventEnd)) {
           slotOccupied = true;
-          // Move startTime to the end of the conflicting task + 1 minute to check next slot
-          startTime = addMinutes(taskEnd, 1); 
-          break; // Found overlap, break inner loop to re-check while condition
+          // Move startTime to the end of the conflicting event + 1 minute, then round to next 15-min interval
+          startTime = roundToNearestInterval(addMinutes(eventEnd, 1));
+          
+          // If this pushes us past business hours, move to next business day
+          if (getHours(startTime) >= BUSINESS_END_HOUR) {
+            startTime = getStartOfBusinessHours(getNextBusinessDay(startTime));
+            daysChecked++;
+          }
+          break;
         }
       } catch (e) {
-        console.error("Error parsing task times during slot check:", task, e);
+        console.error("Error parsing event times during slot check:", event, e);
       }
     }
 
-    if (!slotOccupied) {
-      // Found an available slot
-      return startTime; 
+    if (!slotOccupied && isWithinBusinessHours(startTime)) {
+      // Double check we're on a 15-minute interval before returning
+      return roundToNearestInterval(startTime);
     }
-    // If the slot was occupied, the startTime was already adjusted, 
-    // so the while loop continues checking from the new startTime.
-    // If startTime jumped past maxEndTime, loop will terminate.
+
+    // Move to next 15-minute slot
+    startTime = addMinutes(startTime, MINUTES_INTERVAL);
   }
 
-  // If loop finishes without returning, no slot was found before maxEndTime
-  console.warn(`Could not find an available slot starting from ${format(date, 'Pp')}`);
-  return null; 
+  console.warn(`Could not find an available slot within ${MAX_DAYS_TO_CHECK} business days`);
+  return null;
 };
 
 export default function TaskGrid() {
-  const { isLoading, tasks, addTask } = useTaskContext();
+  const { isLoading, tasks, addTask, updateTask } = useTaskContext();
+  const { isConnected, calendars, fetchEvents } = useGoogleCalendar();
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [quickTaskTitle, setQuickTaskTitle] = useState("");
   const [activeQuickAdd, setActiveQuickAdd] = useState<"today" | "tomorrow" | null>(null);
   const [showCompletedPopup, setShowCompletedPopup] = useState(false);
+  const [showAutoSchedulePopup, setShowAutoSchedulePopup] = useState(false);
+  const [autoScheduleSection, setAutoScheduleSection] = useState<"today" | "tomorrow">("today");
 
   // Organize tasks into Today, Tomorrow, Future, Someday, and Completed
   const organizedTasks = useMemo(() => {
@@ -97,48 +183,50 @@ export default function TaskGrid() {
     return { ...organized, completed: completedTasks };
   }, [tasks]);
 
-  // Quick Add handler with slot finding
+  // Get unscheduled tasks for today and tomorrow
+  const unscheduledTasks = useMemo(() => {
+    const today = startOfDay(new Date());
+    const tomorrow = startOfDay(dfnsAddDays(today, 1));
+    
+    return {
+      today: organizedTasks.today.filter(task => !task.start_time || !task.end_time),
+      tomorrow: organizedTasks.tomorrow.filter(task => !task.start_time || !task.end_time)
+    };
+  }, [organizedTasks]);
+
+  // Quick Add handler
   const handleQuickAddKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>, section: "today" | "tomorrow") => {
     if (e.key === "Enter" && quickTaskTitle.trim()) {
-      // Set date based on section without specific time
       const today = new Date();
+      const taskDate = section === "today" ? today : dfnsAddDays(today, 1);
       
-      // Create a date at the start of the day (midnight)
-      let taskDate: Date;
-      if (section === "today") {
-        taskDate = startOfDay(today);
-      } else { // tomorrow
-        taskDate = startOfDay(dfnsAddDays(today, 1));
-      }
-      
-      // Use snake_case for payload keys matching DB schema
-      const payload: Record<string, any> = {
-        title: quickTaskTitle,
-        start_time: taskDate.toISOString(),
-        color: "#6C584C", // Default brown
-      };
-
       try {
-        await addTask(payload); 
+        await addTask({
+          title: quickTaskTitle,
+          start_time: taskDate.toISOString(),
+          color: "#6C584C",
+        });
         setQuickTaskTitle("");
-        setActiveQuickAdd(null); 
+        setActiveQuickAdd(null);
       } catch (error) {
-         console.error("Quick add failed:", error);
+        console.error("Quick add failed:", error);
       }
-      
     } else if (e.key === "Escape") {
       setQuickTaskTitle("");
       setActiveQuickAdd(null);
     }
   };
 
-  // Update renderSection to always show Quick Add UI below tasks for Today/Tomorrow
+  // Update renderSection to include the auto-schedule button
   const renderSection = (title: string, tasks: Task[], section: "today" | "tomorrow" | "future" | "someday" | "completed", alwaysShow: boolean = false) => {
     // Keep the condition to hide empty Future/Someday sections if not always shown
     if (tasks.length === 0 && !alwaysShow && section !== "today" && section !== "tomorrow") return null;
 
     // Determine if this section should have a Quick Add feature
     const canQuickAdd = section === "today" || section === "tomorrow";
+    const hasUnscheduledTasks = section === "today" || section === "tomorrow" 
+      ? unscheduledTasks[section].length > 0 
+      : false;
 
     // Special styling for completed section
     const isCompletedSection = section === "completed";
@@ -146,7 +234,7 @@ export default function TaskGrid() {
     const sectionHeaderClasses = `font-semibold relative ${
       isCompletedSection 
         ? 'text-gray-500 text-sm py-1' 
-        : 'text-gray-900 text-xl pb-1 pt-3'
+        : 'text-gray-900 text-xl pb-1 pt-2'
     } pl-2 pr-4 flex items-end justify-between cursor-${isCompletedSection ? 'pointer' : 'default'}`;
 
     // Define the Quick Add UI elements directly (Button or Input)
@@ -183,7 +271,23 @@ export default function TaskGrid() {
           className={sectionHeaderClasses}
           onClick={isCompletedSection ? () => setShowCompletedPopup(true) : undefined}
         >
-          <h2>{title}</h2>
+          <div className="flex items-center justify-between w-full">
+            <h2>{title}</h2>
+            {hasUnscheduledTasks && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 -mr-2 text-gray-400 hover:text-gray-600 hover:bg-transparent p-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setAutoScheduleSection(section as "today" | "tomorrow");
+                  setShowAutoSchedulePopup(true);
+                }}
+              >
+                <Clock className="h-3.5 w-3.5" strokeWidth={3} />
+              </Button>
+            )}
+          </div>
           {isCompletedSection && (
             <span className="text-xs font-normal">
               {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
@@ -265,6 +369,13 @@ export default function TaskGrid() {
         tasks={tasks}
         open={showCompletedPopup}
         onClose={() => setShowCompletedPopup(false)}
+      />
+
+      <AutoSchedulePopup
+        open={showAutoSchedulePopup}
+        onClose={() => setShowAutoSchedulePopup(false)}
+        section={autoScheduleSection}
+        unscheduledTasks={unscheduledTasks[autoScheduleSection]}
       />
     </div>
   );

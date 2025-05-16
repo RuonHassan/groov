@@ -473,8 +473,8 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   return (
     <div className="w-full flex flex-col">
       {/* Calendar header with navigation */}
-      <div className="flex items-center justify-between p-2 relative">
-        <span className="font-semibold text-xl">
+      <div className="flex items-center justify-between pt-2 pb-1 px-2 relative">
+        <span className="font-semibold text-xl pl-2">
           {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
         </span>
         <div className="md:hidden flex items-center space-x-2">
@@ -508,7 +508,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                   key={day.toISOString()} 
                   className="sticky top-0 z-20 bg-white border-b border-gray-200 p-2 text-center">
                 <div className="text-xs font-medium text-gray-500">{formatWeekdayHeader(day)}</div>
-                <div className={`text-lg font-semibold ${isSameDay(day, new Date()) ? 'text-blue-600' : 'text-gray-900'}`}>
+                <div className={`text-lg font-semibold pb-1 ${isSameDay(day, new Date()) ? 'text-blue-600' : 'text-gray-900'}`}>
                   {formatDateHeader(day)}
                 </div>
               </div>

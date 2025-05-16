@@ -115,6 +115,23 @@ The project follows a monorepo-like structure with shared code:
     *   Priority: High, Medium, Low
     *   Time: Estimated time to complete
     *   Due Date: Optional deadline
+*   **Auto-Schedule Feature:**
+    *   Smart scheduling button in Today/Tomorrow sections
+    *   Schedules tasks in 30-minute blocks
+    *   Respects business hours (9 AM - 5 PM)
+    *   Blocks out lunch break (12:30 PM - 1:30 PM)
+    *   Skips weekends
+    *   Aligns to 15-minute intervals
+    *   Looks ahead up to 14 days
+    *   Avoids conflicts with existing tasks and Google Calendar events
+    *   Mobile-responsive popup interface
+*   **Completed Tasks Management:**
+    *   Dedicated completed tasks section
+    *   Click-to-expand completed tasks list
+    *   Completion timestamp tracking
+    *   Task restoration capability
+    *   Maintains task colors and metadata
+    *   Mobile-optimized interface
 
 ### 2. Calendar Integration
 *   **Event Management:** Create, update, delete calendar events
@@ -161,10 +178,44 @@ The project follows a monorepo-like structure with shared code:
     - `eventUtils.ts`: Event handling and positioning
     - `colorUtils.ts`: Color management for events and tasks
 
-- **Calendar Event Form**: Create and edit calendar events
-- **Task Connection**: Associate calendar events with tasks
+### Task Management Components
 
-### Pomodoro Interface
+- **Auto-Schedule Feature**:
+  - **Components**:
+    - `AutoSchedulePopup.tsx`: Main popup interface for auto-scheduling
+    - `TaskGrid.tsx`: Integration with section headers and icon button
+  - **Features**:
+    - Smart scheduling button in section headers
+    - Conflict-aware time slot selection
+    - Business hours enforcement
+    - Lunch break blocking (12:30-1:30 PM)
+    - Weekend skipping
+    - 15-minute interval alignment
+    - 14-day lookahead
+    - Mobile-responsive design
+  - **UI Elements**:
+    - Clean popup dialog
+    - Task list preview
+    - Loading states
+    - Success/error feedback
+    - Responsive button layout
+
+- **Completed Tasks Management**:
+  - **Components**:
+    - `CompletedTasksPopup.tsx`: Popup interface for completed tasks
+    - `TaskGrid.tsx`: Integration with completed section
+  - **Features**:
+    - Expandable completed tasks section
+    - Task restoration
+    - Completion timestamp display
+    - Color preservation
+    - Mobile optimization
+  - **UI Elements**:
+    - Section header with task count
+    - Expandable task list
+    - Restore task buttons
+    - Completion metadata
+    - Mobile-friendly layout
 
 ## API Endpoints (`/server/routes.ts`)
 

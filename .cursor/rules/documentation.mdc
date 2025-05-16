@@ -1,8 +1,3 @@
----
-description: 
-globs: 
-alwaysApply: true
----
 # Groov- Product Documentation
 
 ## Overview
@@ -1429,4 +1424,44 @@ export async function setupVite(app: Express, server: Server) {
 }
 ```
 
-// ... existing code ... 
+#### Auto-Schedule Feature
+- **Smart Scheduling Button**: Icon button in Today/Tomorrow sections for unscheduled tasks
+- **Intelligent Time Slots**:
+  - Schedules in 30-minute blocks
+  - Respects business hours (9 AM - 5 PM)
+  - Skips weekends
+  - Blocks out lunch break (12:30 PM - 1:30 PM)
+  - Aligns to 15-minute intervals
+  - Looks ahead up to 14 days
+- **Conflict Avoidance**:
+  - Checks Google Calendar events
+  - Considers existing scheduled tasks
+  - Skips occupied time slots
+  - Preserves task duration
+- **User Interface**:
+  - Clean popup dialog
+  - Lists tasks to be scheduled
+  - Shows scheduling status
+  - Provides feedback on completion
+  - Mobile-responsive design
+
+#### Completed Tasks Popup
+- **Access**: Available through the Completed section header
+- **Task Display**:
+  - Shows all completed tasks
+  - Displays completion timestamp
+  - Maintains task colors and metadata
+  - Preserves original scheduling
+- **Interface Features**:
+  - Modal dialog presentation
+  - Scrollable task list
+  - Task count indicator
+  - Clean, minimal design
+  - Mobile-optimized layout
+- **Task Management**:
+  - View completed task details
+  - Restore completed tasks
+  - Bulk management options
+  - Completion history
+
+ 
