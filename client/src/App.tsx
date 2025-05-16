@@ -11,6 +11,8 @@ import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import UpdatePasswordPage from "@/pages/UpdatePasswordPage";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import TermsOfService from "@/pages/TermsOfService";
 import { WeekProvider } from "./contexts/WeekContext";
 import Layout from "@/components/Layout";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -41,6 +43,8 @@ function Router() {
       <Route path="/register" component={RegisterPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
       <Route path="/update-password" component={UpdatePasswordPage} />
+      <Route path="/privacy" component={PrivacyPolicy} />
+      <Route path="/terms" component={TermsOfService} />
       
       {/* Protected routes - with Layout wrapper */}
       <Route path="/app">

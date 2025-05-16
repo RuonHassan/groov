@@ -35,7 +35,7 @@ export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-white">
       {/* Header */}
-      <header className="bg-gray-900 text-white py-4">
+      <header className="bg-black text-white py-4">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
             <img 
@@ -45,12 +45,12 @@ export default function LandingPage() {
             />
             <div className="flex gap-4">
               <Link href="/login">
-                <Button variant="link" className="text-white no-underline">
+                <Button variant="link" className="text-white no-underline hover:text-white/80">
                   Login
                 </Button>
               </Link>
               <Link href="/register">
-                <Button variant="secondary" className="bg-white text-gray-900 hover:bg-white hover:text-gray-900">
+                <Button variant="secondary" className="bg-white text-black hover:bg-white/90 hover:text-black">
                   Sign Up
                 </Button>
               </Link>
@@ -253,7 +253,7 @@ export default function LandingPage() {
         </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-16">
+      <footer className="bg-black text-white py-16">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center text-center">
             <img 
@@ -261,16 +261,16 @@ export default function LandingPage() {
               alt="Groov Logo" 
               className="h-10 mb-4 invert"
             />
-            <p className="text-gray-400 mb-8 max-w-md">
+            <p className="text-white/60 mb-8 max-w-md">
               Simple, beautiful and powerful todo list app for modern teams.
             </p>
             <div className="border-t border-white/10 pt-8 w-full flex flex-col md:flex-row justify-between items-center">
-              <p className="text-gray-400 text-sm">
+              <p className="text-white/60 text-sm">
                 © {new Date().getFullYear()} Groov. All rights reserved.
               </p>
               <div className="flex space-x-8 mt-4 md:mt-0">
-                <a href="#" className="text-gray-400 hover:text-white text-sm">Privacy Policy</a>
-                <a href="#" className="text-gray-400 hover:text-white text-sm">Terms of Service</a>
+                <Link href="/privacy" className="text-white/60 hover:text-white transition-colors duration-200 text-sm">Privacy Policy</Link>
+                <Link href="/terms" className="text-white/60 hover:text-white transition-colors duration-200 text-sm">Terms of Service</Link>
               </div>
             </div>
           </div>
