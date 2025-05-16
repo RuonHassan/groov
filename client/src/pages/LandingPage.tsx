@@ -86,8 +86,8 @@ export default function LandingPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
-      {/* Header - with sticky positioning and transition for logo */}
-      <header className={`bg-black text-white fixed w-full top-0 z-50 transition-all duration-300 ${isHeaderCompact ? 'py-3' : 'py-6'}`}>
+      {/* Header - fixed compact size with animated elements */}
+      <header className="bg-black text-white fixed w-full top-0 z-50 py-3">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center relative">
             {/* Center logo container */}
@@ -95,10 +95,10 @@ export default function LandingPage() {
               <img 
                 src="/groov.png" 
                 alt="Groov Logo" 
-                className={`transition-all duration-300 invert ${
+                className={`h-6 invert transition-all duration-300 ${
                   isHeaderCompact 
-                    ? 'h-6 opacity-100 translate-y-0' 
-                    : 'h-8 opacity-0 translate-y-1'
+                    ? 'opacity-100 translate-y-0' 
+                    : 'opacity-0 translate-y-1'
                 }`}
               />
             </div>
@@ -109,10 +109,10 @@ export default function LandingPage() {
               <Link href="/login">
                 <Button 
                   variant="link" 
-                  className={`text-white no-underline hover:text-white/80 transition-all duration-300 ${
+                  className={`text-white no-underline hover:text-white/80 h-8 px-3 text-sm transition-all duration-300 ${
                     isHeaderCompact 
-                      ? 'h-8 px-3 text-sm opacity-100 translate-y-0' 
-                      : 'h-10 px-4 text-base opacity-0 translate-y-1'
+                      ? 'opacity-100 translate-y-0' 
+                      : 'opacity-0 translate-y-1'
                   }`}
                 >
                   Login
@@ -121,10 +121,10 @@ export default function LandingPage() {
               <Link href="/register">
                 <Button 
                   variant="secondary" 
-                  className={`bg-white text-black hover:bg-white/90 hover:text-black transition-all duration-300 ${
+                  className={`bg-white text-black hover:bg-white/90 hover:text-black h-8 px-3 text-sm transition-all duration-300 ${
                     isHeaderCompact 
-                      ? 'h-8 px-3 text-sm opacity-100 translate-y-0' 
-                      : 'h-10 px-4 text-base opacity-0 translate-y-1'
+                      ? 'opacity-100 translate-y-0' 
+                      : 'opacity-0 translate-y-1'
                   }`}
                 >
                   Sign Up
@@ -135,8 +135,8 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* Add padding to account for fixed header - dynamic based on header state */}
-      <div className={`transition-all duration-300 ${isHeaderCompact ? 'pt-14' : 'pt-20'}`}>
+      {/* Fixed padding for compact header */}
+      <div className="pt-14">
         {/* Hero Section */}
         <section className="relative overflow-hidden min-h-[90vh] flex items-center bg-white">
           {/* Background layers */}
