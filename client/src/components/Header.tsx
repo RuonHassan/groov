@@ -9,7 +9,6 @@ import {
   LogOut,
   Settings
 } from "lucide-react";
-import WeeklyReviewModal from "./WeeklyReviewModal";
 import CalendarSettingsPopup from "./CalendarSettingsPopup";
 import SettingsPopup from "./SettingsPopup";
 import { format, startOfWeek, isSameWeek, addWeeks } from "date-fns";
@@ -31,7 +30,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function Header() {
-  const [showReviewModal, setShowReviewModal] = useState(false);
   const [showCalendarSettings, setShowCalendarSettings] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isOnCalendar] = useRoute("/calendar");
@@ -171,8 +169,6 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Weekly Review Modal */}
-      <WeeklyReviewModal open={showReviewModal} onClose={() => setShowReviewModal(false)} />
       <CalendarSettingsPopup open={showCalendarSettings} onOpenChange={setShowCalendarSettings} />
       <SettingsPopup open={showSettings} onOpenChange={setShowSettings} />
     </header>
