@@ -129,7 +129,7 @@ export default function LandingPage() {
             </div>
 
             <div className="w-full md:w-1/2 relative pl-4">
-              <div className="relative rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/20 bg-white">
+              <div className="relative rounded-[2.5rem] overflow-hidden shadow-2xl border-2 border-black/20 bg-black">
                 <img 
                   src="/app-preview-new.jpeg" 
                   alt="Groov App Interface" 
