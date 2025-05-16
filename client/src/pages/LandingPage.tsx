@@ -57,7 +57,7 @@ export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-white">
       {/* Header */}
-      <header className="bg-black text-white py-4">
+      <header className="bg-black text-white py-4 relative z-50">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
             <img 
@@ -83,9 +83,9 @@ export default function LandingPage() {
 
         {/* Hero Section */}
       <section className="relative overflow-hidden min-h-[90vh] flex items-center">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-100/80 via-blue-50 to-purple-50 opacity-90 animate-gradient-slow -z-10"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,58,237,0.12),transparent_50%)]"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.12),transparent_50%)]"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-100/80 via-blue-50 to-purple-50 opacity-90 animate-gradient-slow -z-20"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,58,237,0.12),transparent_50%)] -z-10"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.12),transparent_50%)] -z-10"></div>
 
         <div className="container max-w-7xl mx-auto px-4 py-12 md:py-16">
           <div className="flex flex-col md:flex-row items-center justify-between">
