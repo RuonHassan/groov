@@ -2,11 +2,12 @@ import { useState, useMemo } from "react";
 import { useTaskContext } from "@/contexts/TaskContext";
 import TaskCard from "./TaskCard";
 import NewTaskCard from "./NewTaskCard";
-import { AlertCircle, Plus, ChevronDown, ChevronRight } from "lucide-react";
+import { AlertCircle, Plus, ChevronDown, ChevronRight, CheckCircle2 } from "lucide-react";
 import { Task } from "@shared/schema";
 import { isToday, isTomorrow, parseISO, format, isValid, startOfDay, addMinutes, addDays as dfnsAddDays, isBefore, isSameDay, isAfter } from "date-fns";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
+import CompletedTasksPopup from "./CompletedTasksPopup";
 
 // Helper function to find the next available 30-min slot
 // Returns null if no slot found within the day constraint
@@ -58,7 +59,7 @@ export default function TaskGrid() {
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [quickTaskTitle, setQuickTaskTitle] = useState("");
   const [activeQuickAdd, setActiveQuickAdd] = useState<"today" | "tomorrow" | null>(null);
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [showCompletedPopup, setShowCompletedPopup] = useState(false);
 
   // Organize tasks into Today, Tomorrow, Future, Someday, and Completed
   const organizedTasks = useMemo(() => {
@@ -180,7 +181,7 @@ export default function TaskGrid() {
       <div>
         <div 
           className={sectionHeaderClasses}
-          onClick={isCompletedSection ? () => setShowCompleted(prev => !prev) : undefined}
+          onClick={isCompletedSection ? () => setShowCompletedPopup(true) : undefined}
         >
           <h2>{title}</h2>
           {isCompletedSection && (
@@ -205,7 +206,7 @@ export default function TaskGrid() {
           )}
         </div>
         
-        {(!isCompletedSection || showCompleted) && (
+        {(!isCompletedSection || showCompletedPopup) && (
           <>
             {tasks.length > 0 && (
               <div className={isCompletedSection ? 'opacity-75' : ''}>
@@ -240,10 +241,31 @@ export default function TaskGrid() {
         {renderSection("Someday", organizedTasks.someday, "someday", true)}
         <NewTaskCard />
       </div>
-      {/* On desktop, completed section is sticky at bottom */}
-      <div className="hidden md:block sticky bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-sm z-10">
-        {renderSection(`Completed`, organizedTasks.completed, "completed", true)}
+
+      {/* Mobile: Show completed tasks inline */}
+      <div className="md:hidden">
+        {renderSection("Completed", organizedTasks.completed, "completed")}
       </div>
+
+      {/* Desktop: Show completed tasks section */}
+      <div className="hidden md:block sticky bottom-0 bg-white border-t border-gray-200">
+        <div 
+          className="text-gray-500 text-sm py-1 pl-2 pr-4 flex items-end justify-between cursor-pointer"
+          onClick={() => setShowCompletedPopup(true)}
+        >
+          <h2>Completed</h2>
+          <span className="text-xs font-normal">
+            {organizedTasks.completed.length} {organizedTasks.completed.length === 1 ? 'task' : 'tasks'}
+          </span>
+        </div>
+      </div>
+
+      {/* Completed Tasks Popup */}
+      <CompletedTasksPopup
+        tasks={tasks}
+        open={showCompletedPopup}
+        onClose={() => setShowCompletedPopup(false)}
+      />
     </div>
   );
 }

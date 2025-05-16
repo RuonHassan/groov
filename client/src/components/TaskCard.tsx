@@ -5,7 +5,7 @@ import AddTaskModal from "./AddTaskModal";
 import { Button } from "@/components/ui/button";
 import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, RotateCcw } from "lucide-react";
 
 interface TaskCardProps {
   task: Task;
@@ -36,6 +36,20 @@ export default function TaskCard({ task }: TaskCardProps) {
     } catch (error) {
       console.error("Failed to mark task complete:", error);
       toast({ title: "Error", description: "Failed to complete task.", variant: "destructive" });
+    }
+  };
+
+  const handleRestore = async (e: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      await updateTask(task.id, { completed_at: null });
+      toast({
+        title: "Task restored",
+        description: `"${task.title}" has been restored.`
+      });
+    } catch (error) {
+      console.error("Failed to restore task:", error);
+      toast({ title: "Error", description: "Failed to restore task.", variant: "destructive" });
     }
   };
 
@@ -73,7 +87,7 @@ export default function TaskCard({ task }: TaskCardProps) {
     } else if (offset > DELETE_THRESHOLD || velocity > 500) {
       handleDelete(info);
     } else {
-      motion.animate(x, 0, { type: "spring", stiffness: 300, damping: 30 });
+      x.set(0);
     }
   };
 
@@ -95,7 +109,7 @@ export default function TaskCard({ task }: TaskCardProps) {
         </motion.div>
         
         <motion.div
-          drag="x"
+          drag={!task.completed_at ? "x" : undefined}
           style={{ x }}
           dragConstraints={{ left: 0, right: 0 }}
           dragElastic={0.2}
@@ -109,15 +123,27 @@ export default function TaskCard({ task }: TaskCardProps) {
           </h3>
           
           <div className="flex items-center ml-auto">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(e) => handleComplete(e)}
-              className="h-6 w-6 rounded-full flex-shrink-0"
-              title="Mark complete"
-            >
-              <CheckCircle className="h-3.5 w-3.5 text-black" />
-            </Button>
+            {task.completed_at ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleRestore}
+                className="h-6 w-6 rounded-full flex-shrink-0"
+                title="Restore task"
+              >
+                <RotateCcw className="h-3.5 w-3.5 text-gray-500 hover:text-gray-900" />
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => handleComplete(e)}
+                className="h-6 w-6 rounded-full flex-shrink-0"
+                title="Mark complete"
+              >
+                <CheckCircle className="h-3.5 w-3.5 text-black" />
+              </Button>
+            )}
           </div>
 
         </motion.div>
