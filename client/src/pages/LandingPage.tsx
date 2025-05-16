@@ -82,12 +82,16 @@ export default function LandingPage() {
       </header>
 
         {/* Hero Section */}
-      <section className="relative overflow-hidden min-h-[90vh] flex items-center">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-100/80 via-blue-50 to-purple-50 opacity-90 animate-gradient-slow -z-20"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,58,237,0.12),transparent_50%)] -z-10"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.12),transparent_50%)] -z-10"></div>
+      <section className="relative overflow-hidden min-h-[90vh] flex items-center bg-white">
+        {/* Background layers */}
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-100/80 via-blue-50 to-purple-50 opacity-90 animate-gradient-slow"></div>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,58,237,0.12),transparent_50%)]"></div>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.12),transparent_50%)]"></div>
+        </div>
 
-        <div className="container max-w-7xl mx-auto px-4 py-12 md:py-16">
+        {/* Content */}
+        <div className="container max-w-7xl mx-auto px-4 py-12 md:py-16 relative">
           <div className="flex flex-col md:flex-row items-center justify-between">
             <div className="w-full md:w-1/2 text-center md:text-left mb-12 md:mb-0">
               <div className="mb-8">
