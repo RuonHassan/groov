@@ -56,7 +56,7 @@ export default function LandingPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
-      {/* Header */}
+      {/* Header - with improved z-index for button interaction */}
       <header className="bg-black text-white py-4 relative z-50">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
