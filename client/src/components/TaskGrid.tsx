@@ -346,11 +346,6 @@ export default function TaskGrid() {
         <NewTaskCard />
       </div>
 
-      {/* Mobile: Show completed tasks inline */}
-      <div className="md:hidden">
-        {renderSection("Completed", organizedTasks.completed, "completed")}
-      </div>
-
       {/* Desktop: Show completed tasks section */}
       <div className="hidden md:block sticky bottom-0 bg-white border-t border-gray-200">
         <div 
