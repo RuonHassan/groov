@@ -13,13 +13,16 @@ export interface GoogleEvent {
   end: { dateTime: string; date?: string };
   location?: string;
   colorId?: string;
+  self?: boolean;
   attendees?: {
     email: string;
     displayName?: string;
     responseStatus?: string;
+    self?: boolean;
   }[];
   organizer?: {
     email: string;
+    self?: boolean;
   };
   conferenceData?: {
     conferenceId: string;

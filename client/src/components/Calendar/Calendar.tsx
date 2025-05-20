@@ -25,7 +25,8 @@ import {
 import { 
   hasExternalAttendees, 
   calculateTaskPosition, 
-  isLightColor 
+  isLightColor,
+  hasUserAcceptedEvent
 } from './utils/eventUtils';
 
 const timeSlots = generateTimeSlots();
@@ -199,6 +200,15 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
 
     fetchDefaultColors();
   }, [user?.id]);
+
+  // Log user info
+  useEffect(() => {
+    console.log('Current user:', {
+      id: user?.id,
+      email: user?.email,
+      user: user
+    });
+  }, [user]);
 
   const formatWeekdayHeader = (date: Date) => format(date, 'EEE');
   const formatDateHeader = (date: Date) => format(date, 'd');
@@ -679,6 +689,9 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                         hasExternalAttendees(item as GoogleEvent) ? externalMeetingColor : defaultGcalColor 
                         : item.color || '#3b82f6');
 
+                      // Check if the event is accepted by the user
+                      const isAccepted = !isGoogleEvent || hasUserAcceptedEvent(item as GoogleEvent, user?.email);
+
                       return (
                         <div
                           key={isGoogleEvent ? item.id : item.id.toString()}
@@ -686,7 +699,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                           style={{
                             top: `${topPercent}%`,
                             height: `${Math.max(heightPercent, 5)}%`,
-                            backgroundColor: bgColor,
+                            backgroundColor: isCompleted ? undefined : (isGoogleEvent && !isAccepted ? `${bgColor}4D` : bgColor), // 4D = 30% opacity in hex
                             borderColor: bgColor,
                             width: `calc(${width}% - 2px)`,
                             left: `${left}%`,
@@ -697,7 +710,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                             WebkitTouchCallout: 'none', // Prevent iOS callout
                             WebkitUserSelect: 'none', // Prevent text selection
                             userSelect: 'none', // Prevent text selection
-                            opacity: isCompleted ? '0.6' : '0.9', // Add opacity to all events, with completed tasks being more transparent
+                            opacity: isCompleted ? '0.6' : '1', // Keep border and text at full opacity
                           }}
                           draggable={!isGoogleEvent && !isCompleted}
                           onTouchStart={(e) => !isGoogleEvent && handleTouchStart(e, item as Task, bgColor || '#3b82f6')}

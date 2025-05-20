@@ -68,4 +68,50 @@ export const isLightColor = (color: string): boolean => {
   const rgb = parseInt(c, 16);
   const luma = (rgb >> 16) * 0.299 + (rgb >> 8 & 255) * 0.587 + (rgb & 255) * 0.114;
   return luma > 128;
+};
+
+// Helper function to check if the current user has accepted an event
+export const hasUserAcceptedEvent = (event: GoogleEvent, userEmail: string | undefined): boolean => {
+  console.log('Checking event acceptance:', {
+    eventSummary: event.summary,
+    userEmail,
+    organizer: event.organizer,
+    self: event.self,
+    attendees: event.attendees
+  });
+
+  if (!event.attendees || !userEmail) {
+    console.log('No attendees or no user email - considering accepted');
+    return true;
+  }
+  
+  // If the user is the organizer, consider it accepted
+  if (event.organizer?.email === userEmail || event.organizer?.self) {
+    console.log('User is organizer - considering accepted');
+    return true;
+  }
+  
+  // If the event has self property, use that
+  if (event.self) {
+    console.log('Event has self property - considering accepted');
+    return true;
+  }
+  
+  // Find the current user in the attendees list
+  const userAttendee = event.attendees.find(attendee => 
+    attendee.email === userEmail || attendee.self
+  );
+  
+  console.log('Found user attendee:', userAttendee);
+  
+  // If user is not in attendees list, consider it accepted (they might be the organizer)
+  if (!userAttendee) {
+    console.log('User not in attendees list - considering accepted');
+    return true;
+  }
+  
+  // Check if the user has accepted the event
+  const isAccepted = userAttendee.responseStatus === 'accepted' || userAttendee.responseStatus === 'tentative';
+  console.log('User response status:', userAttendee.responseStatus, 'isAccepted:', isAccepted);
+  return isAccepted;
 }; 
