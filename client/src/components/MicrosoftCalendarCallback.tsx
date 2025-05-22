@@ -89,8 +89,8 @@ export default function MicrosoftCalendarCallback() {
   return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="text-center">
-        <h2 className="text-lg font-semibold mb-2">Connecting your Microsoft calendar...</h2>
-        <p className="text-sm text-gray-500">Please wait while we complete the setup.</p>
+        <h1 className="text-xl font-semibold mb-2">Connecting to Microsoft Calendar</h1>
+        <p className="text-gray-500">Please wait while we complete the connection...</p>
       </div>
     </div>
   );

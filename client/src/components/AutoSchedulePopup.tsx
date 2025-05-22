@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Task } from "@shared/schema";
-import { useGoogleCalendar } from "@/contexts/GoogleCalendarContext";
+import { useCalendar } from "@/contexts/CalendarContext";
 import { useTaskContext } from "@/contexts/TaskContext";
 import { addDays as dfnsAddDays, addMinutes, getDay, getHours, getMinutes, isBefore, isValid, parseISO, set, startOfDay } from "date-fns";
 import { Loader2 } from "lucide-react";
@@ -144,7 +144,7 @@ interface AutoSchedulePopupProps {
 
 export default function AutoSchedulePopup({ open, onClose, section, unscheduledTasks }: AutoSchedulePopupProps) {
   const [isScheduling, setIsScheduling] = useState(false);
-  const { isConnected, calendars, fetchEvents } = useGoogleCalendar();
+  const { isConnected, calendars, fetchEvents } = useCalendar();
   const { tasks, updateTask } = useTaskContext();
 
   const handleAutoSchedule = async () => {
@@ -216,9 +216,6 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
       <DialogContent className="!max-w-[380px] w-[calc(100%-1rem)] !sm:max-w-[380px] rounded-lg">
         <DialogHeader>
           <DialogTitle className="text-lg">Let us put these in your calendar for you?</DialogTitle>
-          <DialogDescription className="text-sm">
-            We'll schedule them for the next available 30 min slots, keeping your lunch free!
-          </DialogDescription>
         </DialogHeader>
 
         <div className="py-2">
@@ -242,4 +239,4 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
       </DialogContent>
     </Dialog>
   );
-} 
+}

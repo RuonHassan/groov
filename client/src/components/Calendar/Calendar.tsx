@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO, getHours, getMinutes, getDay } from 'date-fns';
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Task } from "@shared/schema";
-import { useToast } from "@/hooks/use-toast";
-import { useWeek } from "@/contexts/WeekContext";
-import { supabase } from "@/lib/supabaseClient";
-import AddTaskModal from '../AddTaskModal';
-import GoogleEventModal from '../GoogleEventModal';
-import { useGoogleCalendar } from '@/contexts/GoogleCalendarContext';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { format, startOfWeek, addDays, isSameDay, isToday, parseISO, isWithinInterval, addMinutes, subMinutes, isBefore, isAfter } from 'date-fns';
+import { useWeek } from '@/contexts/WeekContext';
+import { Task } from '@shared/schema';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Pencil, X, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import TaskForm from '@/components/TaskForm';
+import { useToast } from '@/hooks/use-toast';
+import { useCalendar } from '@/contexts/CalendarContext';
 import { useAuth } from "@/contexts/AuthContext";
 import { useTaskContext } from "@/contexts/TaskContext";
 
@@ -46,7 +46,7 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   const [selectedEvent, setSelectedEvent] = useState<GoogleEvent | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [defaultTaskTimes, setDefaultTaskTimes] = useState<{ start_time: string | null; end_time: string | null }>({ start_time: null, end_time: null });
-  const { isConnected, calendars, fetchEvents } = useGoogleCalendar();
+  const { isConnected, calendars, fetchEvents } = useCalendar();
   const [googleEvents, setGoogleEvents] = useState<GoogleEvent[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date()); // State for current time
   const [mobileViewOffset, setMobileViewOffset] = useState<'early' | 'late'>('early'); // 'early' for Mon-Wed, 'late' for Wed-Fri
@@ -797,4 +797,4 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
       )}
     </div>
   );
-} 
+}

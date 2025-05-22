@@ -1,105 +1,31 @@
-import type { ConnectedCalendar } from '@shared/schema';
+/**
+ * Utility functions for Google Calendar integration
+ */
 
-// Track initialization state
-let isInitializing = false;
-let isInitialized = false;
-
-// Initialize Google API client
-export const initializeGoogleApi = async () => {
-  // If already initialized, return immediately
-  if (isInitialized) return;
-  
-  // If currently initializing, wait for it to complete
-  if (isInitializing) {
-    while (isInitializing) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    return;
-  }
-
-  try {
-    isInitializing = true;
-
-    const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
-    const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
-
-    if (!API_KEY) {
-      throw new Error('Google API Key is not set in environment variables');
-    }
-
-    if (!window.gapi) {
-      await new Promise((resolve) => {
-        const script = document.createElement('script');
-        script.src = 'https://apis.google.com/js/api.js';
-        script.onload = resolve;
-        document.body.appendChild(script);
-      });
-    }
-
-    if (!window.gapi.client) {
-      await new Promise((resolve) => window.gapi.load('client', resolve));
-    }
-
-    if (!window.gapi.client.calendar) {
-      await window.gapi.client.init({
-        apiKey: API_KEY,
-        discoveryDocs: [DISCOVERY_DOC],
-      });
-    }
-
-    isInitialized = true;
-  } finally {
-    isInitializing = false;
-  }
-};
-
-// Fetch events from Google Calendar
-export const fetchGoogleEvents = async (
-  calendar: ConnectedCalendar,
-  timeMin: Date,
-  timeMax: Date
-): Promise<any[]> => {
-  try {
-    // Set the token for this request
-    window.gapi.client.setToken({ 
-      access_token: calendar.access_token
-    });
-
-    const response = await window.gapi.client.calendar.events.list({
-      calendarId: calendar.calendar_id,
-      timeMin: timeMin.toISOString(),
-      timeMax: timeMax.toISOString(),
-      showDeleted: false,
-      singleEvents: true,
-      orderBy: 'startTime',
-      maxResults: 100,
-    });
-
-    return response.result.items || [];
-  } catch (error: any) {
-    console.error('Error fetching Google calendar events:', error);
-    throw error;
-  }
-};
-
-// Generate Google OAuth URL
-export const generateGoogleAuthUrl = (userId: string): string => {
+/**
+ * Generates the Google OAuth URL for calendar authorization
+ * @param userId The user ID to include in the state parameter
+ * @returns The complete OAuth URL
+ */
+export function generateGoogleAuthUrl(userId: string): string {
   const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI || 'https://groov-tasks.vercel.app/auth/google/callback';
   const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
-
+  
   if (!CLIENT_ID) {
     throw new Error('Missing Google Client ID');
   }
 
+  // Create a state parameter with user ID and a nonce for security
   const state = JSON.stringify({
     user_id: userId,
     nonce: Math.random().toString(36).substring(2)
   });
 
-  // Store state for verification during callback
+  // Store the state in localStorage to verify on callback
   localStorage.setItem('googleOAuthState', state);
 
+  // Build the OAuth URL
   const oauthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   oauthUrl.searchParams.append('client_id', CLIENT_ID);
   oauthUrl.searchParams.append('redirect_uri', REDIRECT_URI);
@@ -110,5 +36,48 @@ export const generateGoogleAuthUrl = (userId: string): string => {
   oauthUrl.searchParams.append('state', state);
 
   return oauthUrl.toString();
-};
+}
+
+/**
+ * Formats Google Calendar events to a standard format
+ * @param events The raw events from Google Calendar API
+ * @returns Formatted calendar events
+ */
+export function formatGoogleEvents(events: any[]) {
+  return events.map(event => ({
+    id: event.id,
+    title: event.summary,
+    description: event.description,
+    start: event.start.dateTime || event.start.date,
+    end: event.end.dateTime || event.end.date,
+    location: event.location,
+    color: event.colorId ? getColorForId(event.colorId) : '#039be5', // Default blue
+    provider: 'google',
+    htmlLink: event.htmlLink,
+    status: event.status
+  }));
+}
+
+/**
+ * Maps Google Calendar color IDs to hex colors
+ * @param colorId The Google Calendar color ID
+ * @returns A hex color string
+ */
+function getColorForId(colorId: string): string {
+  const colorMap: Record<string, string> = {
+    '1': '#7986cb', // Lavender
+    '2': '#33b679', // Sage
+    '3': '#8e24aa', // Grape
+    '4': '#e67c73', // Flamingo
+    '5': '#f6c026', // Banana
+    '6': '#f5511d', // Tangerine
+    '7': '#039be5', // Peacock
+    '8': '#616161', // Graphite
+    '9': '#3f51b5', // Blueberry
+    '10': '#0b8043', // Basil
+    '11': '#d60000', // Tomato
+  };
+  
+  return colorMap[colorId] || '#039be5'; // Default to Peacock blue
+}
 

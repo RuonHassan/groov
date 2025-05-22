@@ -1,136 +1,212 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
-};
+interface TokenRefreshRequest {
+  calendar_id: string;
+  provider: 'google' | 'microsoft';
+  refresh_token: string;
+}
 
-// Get environment variables
-const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID');
-const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
-const MICROSOFT_CLIENT_ID = Deno.env.get('MICROSOFT_CLIENT_ID');
-const MICROSOFT_CLIENT_SECRET = Deno.env.get('MICROSOFT_CLIENT_SECRET');
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+interface TokenResponse {
+  access_token: string;
+  expires_in: number;
+  refresh_token?: string;
+}
 
 serve(async (req) => {
-  // Handle CORS preflight
+  // Set CORS headers
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Content-Type': 'application/json',
+  };
+
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers });
   }
 
   try {
-    const { calendar_id, provider, refresh_token } = await req.json();
-
+    // Get the request data
+    const { calendar_id, provider, refresh_token }: TokenRefreshRequest = await req.json();
+    
     if (!calendar_id || !provider || !refresh_token) {
-      throw new Error('Missing required parameters');
+      return new Response(
+        JSON.stringify({ error: 'Missing required parameters' }),
+        { status: 400, headers }
+      );
     }
 
-    // Initialize Supabase client
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Get the JWT token from the request headers
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers }
+      );
+    }
 
-    // Get the calendar from the database to verify it exists
-    const { data: calendar, error: fetchError } = await supabase
+    // Create a Supabase client with the user's JWT
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    });
+
+    // Verify the user is authenticated
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers }
+      );
+    }
+
+    // Verify the calendar belongs to the user
+    const { data: calendar, error: calendarError } = await supabase
       .from('connected_calendars')
       .select('*')
       .eq('id', calendar_id)
+      .eq('user_id', user.id)
       .single();
 
-    if (fetchError || !calendar) {
-      throw new Error(`Calendar not found: ${fetchError?.message || 'Unknown error'}`);
+    if (calendarError || !calendar) {
+      return new Response(
+        JSON.stringify({ error: 'Calendar not found or access denied' }),
+        { status: 404, headers }
+      );
     }
 
-    // Refresh token based on provider
-    let tokenResponse;
-    let tokens;
-
+    // Refresh the token based on the provider
+    let tokenData: TokenResponse;
+    
     if (provider === 'google') {
-      // Google token refresh
-      const tokenPayload = new URLSearchParams({
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
-        refresh_token,
-        grant_type: 'refresh_token'
-      });
+      const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
+      const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
 
-      tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      if (!clientId || !clientSecret) {
+        return new Response(
+          JSON.stringify({ error: 'Google OAuth configuration is incomplete' }),
+          { status: 500, headers }
+        );
+      }
+
+      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: tokenPayload
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          refresh_token,
+          grant_type: 'refresh_token',
+        }),
       });
+
+      if (!tokenResponse.ok) {
+        const errorData = await tokenResponse.text();
+        console.error('Google token refresh error:', errorData);
+        return new Response(
+          JSON.stringify({ error: 'Failed to refresh Google token' }),
+          { status: 500, headers }
+        );
+      }
+
+      tokenData = await tokenResponse.json();
     } else if (provider === 'microsoft') {
-      // Microsoft token refresh
-      const tokenPayload = new URLSearchParams({
-        client_id: MICROSOFT_CLIENT_ID,
-        client_secret: MICROSOFT_CLIENT_SECRET,
-        refresh_token,
-        grant_type: 'refresh_token',
-        scope: 'Calendars.Read offline_access'
-      });
+      const clientId = Deno.env.get('MICROSOFT_CLIENT_ID');
+      const clientSecret = Deno.env.get('MICROSOFT_CLIENT_SECRET');
 
-      tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+      if (!clientId || !clientSecret) {
+        return new Response(
+          JSON.stringify({ error: 'Microsoft OAuth configuration is incomplete' }),
+          { status: 500, headers }
+        );
+      }
+
+      const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: tokenPayload
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          refresh_token,
+          grant_type: 'refresh_token',
+          scope: 'Calendars.Read offline_access',
+        }),
       });
+
+      if (!tokenResponse.ok) {
+        const errorData = await tokenResponse.text();
+        console.error('Microsoft token refresh error:', errorData);
+        return new Response(
+          JSON.stringify({ error: 'Failed to refresh Microsoft token' }),
+          { status: 500, headers }
+        );
+      }
+
+      tokenData = await tokenResponse.json();
     } else {
-      throw new Error(`Unsupported provider: ${provider}`);
+      return new Response(
+        JSON.stringify({ error: 'Unsupported provider' }),
+        { status: 400, headers }
+      );
     }
 
-    tokens = await tokenResponse.json();
-    if (!tokenResponse.ok) {
-      console.error(`[Edge Function] Token refresh error for ${provider}:`, tokens);
-      throw new Error(`Token refresh failed: ${tokens.error}`);
-    }
+    // Calculate token expiration time
+    const expiresAt = new Date();
+    expiresAt.setSeconds(expiresAt.getSeconds() + tokenData.expires_in);
 
-    // Calculate new token expiry
-    const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
-
-    // Update the calendar in the database
-    const updateData = {
-      access_token: tokens.access_token,
-      token_expires_at: expiresAt
+    // Update the database with the new token
+    const updateData: Record<string, any> = {
+      access_token: tokenData.access_token,
+      token_expires_at: expiresAt.toISOString(),
     };
 
-    // If a new refresh token was provided, update it too
-    if (tokens.refresh_token) {
-      updateData.refresh_token = tokens.refresh_token;
+    // If a new refresh token was provided, update it as well
+    if (tokenData.refresh_token) {
+      updateData.refresh_token = tokenData.refresh_token;
     }
 
-    const { data: updatedCalendar, error: updateError } = await supabase
+    const { error: updateError } = await supabase
       .from('connected_calendars')
       .update(updateData)
-      .eq('id', calendar_id)
-      .select('*')
-      .single();
+      .eq('id', calendar_id);
 
     if (updateError) {
-      console.error('[Edge Function] Database update error:', updateError);
-      throw updateError;
+      console.error('Database update error:', updateError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to update token information' }),
+        { status: 500, headers }
+      );
     }
 
-    return new Response(JSON.stringify(updatedCalendar), {
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
-      }
-    });
+    return new Response(
+      JSON.stringify({ success: true }),
+      { status: 200, headers }
+    );
   } catch (error) {
-    console.error('[Edge Function] Error caught:', error);
-    return new Response(JSON.stringify({
-      error: error.message
-    }), {
-      status: 400,
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
-      }
-    });
+    console.error('Unexpected error:', error);
+    return new Response(
+      JSON.stringify({ error: 'An unexpected error occurred' }),
+      { status: 500, headers }
+    );
   }
 });
 

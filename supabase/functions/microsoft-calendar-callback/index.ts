@@ -1,137 +1,186 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
-};
-
-// Get environment variables
-const MICROSOFT_CLIENT_ID = Deno.env.get('MICROSOFT_CLIENT_ID');
-const MICROSOFT_CLIENT_SECRET = Deno.env.get('MICROSOFT_CLIENT_SECRET');
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
-const REDIRECT_URI = Deno.env.get('MICROSOFT_REDIRECT_URI') || 'https://groov-tasks.vercel.app/auth/microsoft/callback';
-const SCOPES = 'Calendars.Read offline_access';
+interface MicrosoftTokenResponse {
+  token_type: string;
+  scope: string;
+  expires_in: number;
+  access_token: string;
+  refresh_token: string;
+}
 
 serve(async (req) => {
-  // Handle CORS preflight
+  // Set CORS headers
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Content-Type': 'application/json',
+  };
+
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers });
   }
 
   try {
+    // Get the authorization code and state from the request
     const { code, state } = await req.json();
-    const { user_id } = JSON.parse(state);
-
-    if (!code || !user_id) {
-      throw new Error('Missing required parameters');
+    
+    if (!code) {
+      return new Response(
+        JSON.stringify({ error: 'Authorization code is required' }),
+        { status: 400, headers }
+      );
     }
 
-    // --- START DEBUG LOGGING ---
-    console.log(`[Edge Function] Received code: ${code ? 'present' : 'missing'}`);
-    console.log(`[Edge Function] Parsed user_id: ${user_id}`);
-    console.log(`[Edge Function] Using MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID?.substring(0, 10)}...`); // Log first 10 chars
-    console.log(`[Edge Function] MICROSOFT_CLIENT_SECRET length: ${MICROSOFT_CLIENT_SECRET?.length}`); // Log length only
-    console.log(`[Edge Function] Using REDIRECT_URI for token exchange: ${REDIRECT_URI}`);
-    // --- END DEBUG LOGGING ---
+    // Parse the state to get the user ID
+    let userId;
+    try {
+      const stateObj = JSON.parse(state);
+      userId = stateObj.user_id;
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid state parameter' }),
+        { status: 400, headers }
+      );
+    }
 
-    // Exchange code for tokens
-    const tokenPayload = new URLSearchParams({
-      code,
-      client_id: MICROSOFT_CLIENT_ID,
-      client_secret: MICROSOFT_CLIENT_SECRET,
-      redirect_uri: REDIRECT_URI,
-      grant_type: 'authorization_code',
-      scope: SCOPES
+    // Get the JWT token from the request headers
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers }
+      );
+    }
+
+    // Create a Supabase client with the user's JWT
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
     });
 
-    console.log('[Edge Function] Sending token exchange request to Microsoft...');
+    // Verify the user is authenticated
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers }
+      );
+    }
+
+    // Verify the user ID from the state matches the authenticated user
+    if (user.id !== userId) {
+      return new Response(
+        JSON.stringify({ error: 'User ID mismatch' }),
+        { status: 403, headers }
+      );
+    }
+
+    // Exchange the authorization code for tokens
+    const clientId = Deno.env.get('MICROSOFT_CLIENT_ID');
+    const clientSecret = Deno.env.get('MICROSOFT_CLIENT_SECRET');
+    const redirectUri = Deno.env.get('MICROSOFT_REDIRECT_URI');
+
+    if (!clientId || !clientSecret || !redirectUri) {
+      return new Response(
+        JSON.stringify({ error: 'Microsoft OAuth configuration is incomplete' }),
+        { status: 500, headers }
+      );
+    }
 
     const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: tokenPayload
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }),
     });
 
-    const tokens = await tokenResponse.json();
     if (!tokenResponse.ok) {
-      console.error('[Edge Function] Token exchange error response from Microsoft:', tokens);
-      throw new Error(`Token exchange failed: ${tokens.error}`);
+      const errorData = await tokenResponse.text();
+      console.error('Token exchange error:', errorData);
+      return new Response(
+        JSON.stringify({ error: 'Failed to exchange authorization code for tokens' }),
+        { status: 500, headers }
+      );
     }
 
-    console.log('[Edge Function] Token exchange successful.');
+    const tokenData: MicrosoftTokenResponse = await tokenResponse.json();
 
-    // Get primary calendar info
-    const calendarResponse = await fetch('https://graph.microsoft.com/v1.0/me/calendars', {
+    // Get the user's primary calendar
+    const calendarResponse = await fetch('https://graph.microsoft.com/v1.0/me/calendar', {
       headers: {
-        Authorization: `Bearer ${tokens.access_token}`
-      }
+        Authorization: `Bearer ${tokenData.access_token}`,
+      },
     });
 
-    const calendars = await calendarResponse.json();
     if (!calendarResponse.ok) {
-      console.error('[Edge Function] Calendar list error:', calendars);
-      throw new Error('Failed to fetch calendar list');
+      const errorData = await calendarResponse.text();
+      console.error('Calendar fetch error:', errorData);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch calendar information' }),
+        { status: 500, headers }
+      );
     }
 
-    // Find primary calendar (usually the first one)
-    const primaryCalendar = calendars.value[0];
-    if (!primaryCalendar) {
-      throw new Error('Could not find any calendars');
-    }
+    const calendarData = await calendarResponse.json();
 
-    // Calculate token expiry
-    const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
+    // Calculate token expiration time
+    const expiresAt = new Date();
+    expiresAt.setSeconds(expiresAt.getSeconds() + tokenData.expires_in);
 
-    // Initialize Supabase client
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    // Store in database
-    console.log('[Edge Function] Upserting calendar details to database...');
-
-    const { error: dbError } = await supabase
-      .from('connected_calendars')
-      .upsert({
-        user_id,
-        provider: 'microsoft',
-        calendar_id: primaryCalendar.id,
-        calendar_name: primaryCalendar.name,
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        token_expires_at: expiresAt,
-        is_primary: true,
-        is_enabled: true
-      }, {
-        onConflict: 'user_id,provider'
-      });
-
-    if (dbError) {
-      console.error('[Edge Function] Database error:', dbError);
-      throw dbError;
-    }
-
-    console.log('[Edge Function] Database upsert successful.');
-
-    return new Response(JSON.stringify({ success: true }), {
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
-      }
+    // Store the calendar and tokens in the database
+    const { error: insertError } = await supabase.from('connected_calendars').insert({
+      user_id: user.id,
+      provider: 'microsoft',
+      calendar_id: calendarData.id,
+      calendar_name: calendarData.name,
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      token_expires_at: expiresAt.toISOString(),
+      is_primary: true,
+      is_enabled: true,
     });
+
+    if (insertError) {
+      console.error('Database insert error:', insertError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to store calendar information' }),
+        { status: 500, headers }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ success: true }),
+      { status: 200, headers }
+    );
   } catch (error) {
-    console.error('[Edge Function] Error caught:', error);
-    return new Response(JSON.stringify({
-      error: error.message
-    }), {
-      status: 400,
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
-      }
-    });
+    console.error('Unexpected error:', error);
+    return new Response(
+      JSON.stringify({ error: 'An unexpected error occurred' }),
+      { status: 500, headers }
+    );
   }
 });
 

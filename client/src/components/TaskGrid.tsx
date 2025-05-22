@@ -1,14 +1,16 @@
 import { useState, useMemo } from "react";
-import { useTaskContext } from "@/contexts/TaskContext";
-import TaskCard from "./TaskCard";
-import NewTaskCard from "./NewTaskCard";
-import { AlertCircle, Plus, ChevronDown, ChevronRight, CheckCircle2, Clock } from "lucide-react";
 import { Task } from "@shared/schema";
-import { isToday, isTomorrow, parseISO, format, isValid, startOfDay, addMinutes, addDays as dfnsAddDays, isBefore, isSameDay, isAfter, getDay, getHours, set, getMinutes } from "date-fns";
-import { Input } from "./ui/input";
-import { Button } from "./ui/button";
+import { useTaskContext } from "@/contexts/TaskContext";
+import { useWeek } from "@/contexts/WeekContext";
+import { format, isToday, isTomorrow, parseISO, isValid, startOfDay, addMinutes, addDays as dfnsAddDays, isBefore, isSameDay, isAfter, getDay, getHours, set, getMinutes } from "date-fns";
+import { Plus, Calendar, MoreHorizontal, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import AddTaskModal from "./AddTaskModal";
+import TaskItem from "./TaskItem";
+import NewTaskCard from "./NewTaskCard";
 import CompletedTasksPopup from "./CompletedTasksPopup";
-import { useGoogleCalendar } from "@/contexts/GoogleCalendarContext";
+import { useCalendar } from "@/contexts/CalendarContext";
 import AutoSchedulePopup from "./AutoSchedulePopup";
 
 // Add type for calendar events
@@ -139,7 +141,8 @@ const findNextAvailableSlot = (date: Date, existingEvents: (CalendarTimeSlot | T
 
 export default function TaskGrid() {
   const { isLoading, tasks, addTask, updateTask } = useTaskContext();
-  const { isConnected, calendars, fetchEvents } = useGoogleCalendar();
+  const { isConnected, calendars, fetchEvents } = useCalendar();
+  const { week } = useWeek();
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [quickTaskTitle, setQuickTaskTitle] = useState("");
   const [activeQuickAdd, setActiveQuickAdd] = useState<"today" | "tomorrow" | null>(null);
@@ -315,7 +318,7 @@ export default function TaskGrid() {
             {tasks.length > 0 && (
               <div className={isCompletedSection ? 'opacity-75' : ''}>
                 {tasks.map((task) => (
-                  <TaskCard key={task.id} task={task} />
+                  <TaskItem key={task.id} task={task} />
                 ))}
               </div>
             )}
