@@ -96,7 +96,7 @@ The project follows a monorepo-like structure with shared code:
 │   ├── .gitignore
 │   ├── drizzle.config.ts   # Drizzle Kit configuration
 │   ├── package.json        # Project dependencies and scripts
-│   ├── tsconfig.json       # TypeScript configuration (root)
+│   ��── tsconfig.json       # TypeScript configuration (root)
 │   ├── vite.config.ts      # Vite configuration (root)
 │   ├── postcss.config.js   # PostCSS configuration
 │   └── tailwind.config.ts  # Tailwind CSS configuration (root)
@@ -250,6 +250,10 @@ The application uses Supabase Edge Functions for serverless operations:
 *   `google-calendar-callback`: Handles OAuth callback and token storage
 *   `google-calendar-refresh`: Refreshes expired Google API tokens
 
+### Microsoft OAuth Flow
+*   `microsoft-calendar-callback`: Handles OAuth callback and token storage
+*   `microsoft-calendar-refresh`: Refreshes expired Microsoft API tokens
+
 ## Data Models (`/shared/schema.ts`)
 
 Key data structures defined using Drizzle ORM and Zod:
@@ -318,7 +322,12 @@ The application connects to Google Calendar using OAuth 2.0:
     VITE_GOOGLE_CLIENT_ID=your-google-client-id
     VITE_GOOGLE_CLIENT_SECRET=your-google-client-secret
     VITE_GOOGLE_API_KEY=your-google-api-key
-    VITE_REDIRECT_URI=http://localhost:5173/auth/google/callback
+    VITE_GOOGLE_REDIRECT_URI=http://localhost:5173/auth/google/callback
+
+    # Microsoft OAuth Configuration
+    VITE_MICROSOFT_CLIENT_ID=your-microsoft-client-id
+    VITE_MICROSOFT_CLIENT_SECRET=your-microsoft-client-secret
+    VITE_MICROSOFT_REDIRECT_URI=http://localhost:5173/auth/microsoft/callback
 
     # Database (if using separate Postgres instance)
     DATABASE_URL=your-postgres-connection-string
@@ -389,4 +398,4 @@ OAuth tokens are stored securely in the database and are never exposed to the cl
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the LICENSE file for details.
