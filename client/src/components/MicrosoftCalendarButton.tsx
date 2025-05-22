@@ -7,9 +7,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { useLocation } from 'wouter';
-import { generateGoogleAuthUrl } from '@/utils/googleCalendarUtils';
+import { generateMicrosoftAuthUrl } from '@/utils/outlookCalendarUtils';
 
-export default function GoogleCalendarButton() {
+export default function MicrosoftCalendarButton() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { calendars } = useCalendar();
@@ -17,9 +17,9 @@ export default function GoogleCalendarButton() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   
-  // Check if Google calendar is connected
-  const googleCalendar = calendars.find(cal => cal.provider === 'google');
-  const isConnected = !!googleCalendar;
+  // Check if Microsoft calendar is connected
+  const microsoftCalendar = calendars.find(cal => cal.provider === 'microsoft');
+  const isConnected = !!microsoftCalendar;
 
   const handleAuthClick = async () => {
     if (!session?.user?.id) {
@@ -28,12 +28,12 @@ export default function GoogleCalendarButton() {
       return;
     }
 
-    const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const CLIENT_ID = import.meta.env.VITE_MICROSOFT_CLIENT_ID;
     if (!CLIENT_ID) {
-      console.error('Missing Google Client ID');
+      console.error('Missing Microsoft Client ID');
       toast({
         title: "Configuration Error",
-        description: "Google Calendar integration is not properly configured.",
+        description: "Microsoft Calendar integration is not properly configured.",
         variant: "destructive"
       });
       return;
@@ -41,14 +41,14 @@ export default function GoogleCalendarButton() {
 
     setIsLoading(true);
     try {
-      // Generate Google OAuth URL and redirect
-      const authUrl = generateGoogleAuthUrl(session.user.id);
+      // Generate Microsoft OAuth URL and redirect
+      const authUrl = generateMicrosoftAuthUrl(session.user.id);
       window.location.href = authUrl;
     } catch (error: any) {
       console.error('Auth error:', error);
       toast({
         title: "Connection Failed",
-        description: error.message || "Could not connect to Google Calendar",
+        description: error.message || "Could not connect to Microsoft Calendar",
         variant: "destructive",
       });
       setIsLoading(false);
@@ -56,7 +56,7 @@ export default function GoogleCalendarButton() {
   };
 
   const handleDeleteCalendar = async () => {
-    if (!session?.user?.id || !googleCalendar) return;
+    if (!session?.user?.id || !microsoftCalendar) return;
 
     try {
       setIsLoading(true);
@@ -64,7 +64,7 @@ export default function GoogleCalendarButton() {
       const { error: deleteError } = await supabase
         .from('connected_calendars')
         .delete()
-        .eq('id', googleCalendar.id);
+        .eq('id', microsoftCalendar.id);
 
       if (deleteError) {
         throw deleteError;
@@ -74,7 +74,7 @@ export default function GoogleCalendarButton() {
 
       toast({
         title: "Calendar Disconnected",
-        description: "Successfully disconnected Google Calendar.",
+        description: "Successfully disconnected Microsoft Calendar.",
       });
     } catch (error: any) {
       console.error('Error deleting calendar connection:', error);
@@ -115,7 +115,8 @@ export default function GoogleCalendarButton() {
       size="sm"
       onClick={handleAuthClick}
     >
-      Add Google
+      Add Outlook
     </Button>
   );
 }
+

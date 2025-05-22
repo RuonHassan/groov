@@ -6,8 +6,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useGoogleCalendar } from '@/contexts/GoogleCalendarContext';
+import { useCalendar } from '@/contexts/CalendarContext';
 import GoogleCalendarButton from "./GoogleCalendarButton";
+import MicrosoftCalendarButton from "./MicrosoftCalendarButton";
 
 interface CalendarSettingsPopupProps {
   open: boolean;
@@ -15,7 +16,11 @@ interface CalendarSettingsPopupProps {
 }
 
 export default function CalendarSettingsPopup({ open, onOpenChange }: CalendarSettingsPopupProps) {
-  const { isConnected } = useGoogleCalendar();
+  const { calendars } = useCalendar();
+  
+  // Check which providers are connected
+  const googleConnected = calendars.some(cal => cal.provider === 'google');
+  const microsoftConnected = calendars.some(cal => cal.provider === 'microsoft');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -31,7 +36,7 @@ export default function CalendarSettingsPopup({ open, onOpenChange }: CalendarSe
                 <CalendarClock className="h-5 w-5" />
                 <div>
                   <h4 className="font-medium">Google Calendar</h4>
-                  {isConnected && (
+                  {googleConnected && (
                     <div className="flex items-center space-x-1 text-xs text-green-600">
                       <Check className="h-3 w-3" />
                       <span>Connected</span>
@@ -42,17 +47,21 @@ export default function CalendarSettingsPopup({ open, onOpenChange }: CalendarSe
               <GoogleCalendarButton />
             </div>
 
-            {/* Outlook Calendar - Coming Soon */}
-            <div className="flex items-center justify-between space-x-2 p-3 rounded-lg border opacity-50">
+            {/* Microsoft Outlook Calendar */}
+            <div className="flex items-center justify-between space-x-2 p-3 rounded-lg border">
               <div className="flex items-center space-x-3">
                 <CalendarClock className="h-5 w-5" />
                 <div>
-                  <h4 className="font-medium">Outlook Calendar</h4>
+                  <h4 className="font-medium">Microsoft Outlook</h4>
+                  {microsoftConnected && (
+                    <div className="flex items-center space-x-1 text-xs text-green-600">
+                      <Check className="h-3 w-3" />
+                      <span>Connected</span>
+                    </div>
+                  )}
                 </div>
               </div>
-              <Button variant="outline" size="sm" disabled>
-                Coming Soon
-              </Button>
+              <MicrosoftCalendarButton />
             </div>
 
             {/* Apple Calendar - Coming Soon */}
@@ -72,4 +81,4 @@ export default function CalendarSettingsPopup({ open, onOpenChange }: CalendarSe
       </DialogContent>
     </Dialog>
   );
-} 
+}
