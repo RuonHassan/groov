@@ -47,7 +47,13 @@ export default function Header() {
     } else if (isSameWeek(currentDate, nextWeekStart)) {
       return "Next Week";
     } else {
-      return "Future";
+      // Check if the current week is before this week
+      const currentWeekStart = startOfWeek(currentDate);
+      if (currentWeekStart < todayWeekStart) {
+        return "Past";
+      } else {
+        return "Future";
+      }
     }
   };
 

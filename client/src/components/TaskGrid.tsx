@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useTaskContext } from "@/contexts/TaskContext";
+import { useWeek } from "@/contexts/WeekContext";
 import TaskCard from "./TaskCard";
 import NewTaskCard from "./NewTaskCard";
 import { AlertCircle, Plus, ChevronDown, ChevronRight, CheckCircle2, Clock } from "lucide-react";

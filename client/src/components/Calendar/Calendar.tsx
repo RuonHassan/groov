@@ -63,6 +63,64 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   const [dragGhost, setDragGhost] = useState<HTMLElement | null>(null);
   const [dragGhostPosition, setDragGhostPosition] = useState<{ x: number; y: number } | null>(null);
 
+  // Helper function to check if two time ranges actually overlap
+  const doTimesOverlap = (start1: Date, end1: Date, start2: Date, end2: Date): boolean => {
+    return start1 < end2 && start2 < end1;
+  };
+
+  // Helper function to group items by actual overlap
+  const groupOverlappingItems = (items: (Task | GoogleEvent)[]): (Task | GoogleEvent)[][] => {
+    if (items.length === 0) return [];
+    
+    // Filter out items without proper start/end times first
+    const validItems = items.filter(item => {
+      const startTime = 'summary' in item ? (item.start.dateTime ?? item.start.date) : item.start_time;
+      const endTime = 'summary' in item ? (item.end.dateTime ?? item.end.date) : item.end_time;
+      return startTime && endTime;
+    });
+    
+    if (validItems.length === 0) return [];
+    
+    // Sort items by start time
+    const sortedItems = [...validItems].sort((a, b) => {
+      const aStart = 'summary' in a ? (a.start.dateTime ?? a.start.date!) : a.start_time!;
+      const bStart = 'summary' in b ? (b.start.dateTime ?? b.start.date!) : b.start_time!;
+      return parseISO(aStart).getTime() - parseISO(bStart).getTime();
+    });
+
+    const groups: (Task | GoogleEvent)[][] = [];
+    
+    for (const item of sortedItems) {
+      const itemStart = 'summary' in item ? (item.start.dateTime ?? item.start.date!) : item.start_time!;
+      const itemEnd = 'summary' in item ? (item.end.dateTime ?? item.end.date!) : item.end_time!;
+      const itemStartDate = parseISO(itemStart);
+      const itemEndDate = parseISO(itemEnd);
+      
+      // Find a group where this item overlaps with at least one existing item
+      let placed = false;
+      for (const group of groups) {
+        const overlapsWithGroup = group.some(groupItem => {
+          const groupStart = 'summary' in groupItem ? (groupItem.start.dateTime ?? groupItem.start.date!) : groupItem.start_time!;
+          const groupEnd = 'summary' in groupItem ? (groupItem.end.dateTime ?? groupItem.end.date!) : groupItem.end_time!;
+          return doTimesOverlap(itemStartDate, itemEndDate, parseISO(groupStart), parseISO(groupEnd));
+        });
+        
+        if (overlapsWithGroup) {
+          group.push(item);
+          placed = true;
+          break;
+        }
+      }
+      
+      // If no overlapping group found, create a new group
+      if (!placed) {
+        groups.push([item]);
+      }
+    }
+    
+    return groups;
+  };
+
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); 
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
 
@@ -622,147 +680,163 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
                       }}
                     />
                     {timeIndicator}
-                    {itemsInSlot.map((item, index, array) => {
-                      const isGoogleEvent = 'summary' in item;
-                      const title = isGoogleEvent ? item.summary : item.title;
-                      const rawStart = isGoogleEvent
-                        ? (item.start.dateTime ?? item.start.date ?? '')
-                        : item.start_time!;
-                      const rawEnd   = isGoogleEvent
-                        ? (item.end.dateTime   ?? item.end.date   ?? '')
-                        : item.end_time!;
-                      if (!rawStart || !rawEnd) {
-                        return null;
-                      }
+                    {(() => {
+                      // Group items by actual overlap
+                      const overlappingGroups = groupOverlappingItems(itemsInSlot);
                       
-                      const startDate = parseISO(rawStart);
-                      const endDate   = parseISO(rawEnd);
-                      const isCompleted = !isGoogleEvent && !!item.completed_at;
+                      return overlappingGroups.flatMap((group: (Task | GoogleEvent)[]) => {
+                        // For items in this group, calculate their positions
+                        const googleEventsInGroup = group.filter((i: Task | GoogleEvent) => 'summary' in i);
+                        const tasksInGroup = group.filter((i: Task | GoogleEvent) => !('summary' in i));
+                        
+                        return group.map((item: Task | GoogleEvent, indexInGroup: number) => {
+                          const isGoogleEvent = 'summary' in item;
+                          const title = isGoogleEvent ? item.summary : item.title;
+                          const rawStart = isGoogleEvent
+                            ? (item.start.dateTime ?? item.start.date ?? '')
+                            : item.start_time!;
+                          const rawEnd   = isGoogleEvent
+                            ? (item.end.dateTime   ?? item.end.date   ?? '')
+                            : item.end_time!;
+                          if (!rawStart || !rawEnd) {
+                            return null;
+                          }
+                          
+                          const startDate = parseISO(rawStart);
+                          const endDate   = parseISO(rawEnd);
+                          const isCompleted = !isGoogleEvent && !!item.completed_at;
 
-                      const startMinute = getMinutes(startDate);
-                      const startHour = getHours(startDate);
-                      const durationInMinutes = (endDate.getTime() - startDate.getTime()) / (1000 * 60);
-                      
-                      const topPercent = (startMinute % 30) / 30 * 100;
-                      const heightPercent = (durationInMinutes / 30) * 100;
+                          const startMinute = getMinutes(startDate);
+                          const startHour = getHours(startDate);
+                          const durationInMinutes = (endDate.getTime() - startDate.getTime()) / (1000 * 60);
+                          
+                          const topPercent = (startMinute % 30) / 30 * 100;
+                          let heightPercent = (durationInMinutes / 30) * 100;
+                          
+                          // Reduce height slightly for 15-minute tasks to create visual separation
+                          if (durationInMinutes === 15) {
+                            heightPercent = heightPercent * 0.9; // 90% of the calculated height
+                          }
 
-                      if (startHour !== slot.hour || Math.floor(startMinute / 30) * 30 !== slot.minute) {
-                        return null;
-                      }
+                          if (startHour !== slot.hour || Math.floor(startMinute / 30) * 30 !== slot.minute) {
+                            return null;
+                          }
 
-                      let taskClasses = "absolute rounded p-1 text-xs overflow-hidden z-10 shadow-sm transition-colors duration-150 ease-in-out";
+                          let taskClasses = "absolute rounded p-1 text-xs overflow-hidden z-10 shadow-sm transition-colors duration-150 ease-in-out";
 
-                      // Add smaller text class for 15-minute tasks
-                      if (durationInMinutes <= 15) {
-                        taskClasses += " text-[10px] leading-[10px] p-[2px]";
-                      }
+                          // Add smaller text class for 15-minute tasks
+                          if (durationInMinutes <= 15) {
+                            taskClasses += " text-[10px] leading-[10px] p-[2px]";
+                          }
 
-                      if (isCompleted) {
-                        taskClasses += " bg-gray-200 text-gray-500 border border-gray-200 cursor-default";
-                      } else {
-                        const bgColor = isGoogleEvent ? 
-                          hasExternalAttendees(item as GoogleEvent) ? externalMeetingColor : defaultGcalColor 
-                          : item.color || '#3b82f6';
-                        const textColor = isLightColor(bgColor) ? 'text-gray-900' : 'text-white';
-                        taskClasses += ` ${textColor} hover:opacity-90 ${isGoogleEvent ? 'cursor-default' : 'cursor-pointer'}`;
-                      }
+                          if (isCompleted) {
+                            taskClasses += " bg-gray-200 text-gray-500 border border-gray-200 cursor-default";
+                          } else {
+                            const bgColor = isGoogleEvent ? 
+                              hasExternalAttendees(item as GoogleEvent) ? externalMeetingColor : defaultGcalColor 
+                              : item.color || '#3b82f6';
+                            const textColor = isLightColor(bgColor) ? 'text-gray-900' : 'text-white';
+                            taskClasses += ` ${textColor} hover:opacity-90 ${isGoogleEvent ? 'cursor-default' : 'cursor-pointer'}`;
+                          }
 
-                      const googleEventCount = array.filter(i => 'summary' in i).length;
-                      const taskEventCount = array.length - googleEventCount;
-                      
-                      let width, left;
-                      
-                      if (googleEventCount > 0 && taskEventCount > 0) {
-                        width = 48 / (isGoogleEvent ? googleEventCount : taskEventCount);
-                        const groupIndex = isGoogleEvent 
-                          ? array.filter(i => 'summary' in i).indexOf(item)
-                          : array.filter(i => !('summary' in i)).indexOf(item);
-                        left = isGoogleEvent 
-                          ? 1 + (groupIndex * width)
-                          : 51 + (groupIndex * width);
-                      } else {
-                        width = (98 / array.length);
-                        left = 1 + (index * width);
-                      }
+                          let width, left;
+                          
+                          // Calculate position based on group composition
+                          if (googleEventsInGroup.length > 0 && tasksInGroup.length > 0) {
+                            // Mix of Google events and tasks - split the space
+                            width = 48 / (isGoogleEvent ? googleEventsInGroup.length : tasksInGroup.length);
+                            const groupTypeIndex = isGoogleEvent 
+                              ? googleEventsInGroup.indexOf(item)
+                              : tasksInGroup.indexOf(item);
+                            left = isGoogleEvent 
+                              ? 1 + (groupTypeIndex * width)
+                              : 51 + (groupTypeIndex * width);
+                          } else {
+                            // All same type - distribute evenly
+                            width = (98 / group.length);
+                            left = 1 + (indexInGroup * width);
+                          }
 
-                      const bgColor = isCompleted ? undefined : (isGoogleEvent ? 
-                        hasExternalAttendees(item as GoogleEvent) ? externalMeetingColor : defaultGcalColor 
-                        : item.color || '#3b82f6');
+                          const bgColor = isCompleted ? undefined : (isGoogleEvent ? 
+                            hasExternalAttendees(item as GoogleEvent) ? externalMeetingColor : defaultGcalColor 
+                            : item.color || '#3b82f6');
 
-                      // Check if the event is accepted by the user
-                      const isAccepted = !isGoogleEvent || hasUserAcceptedEvent(item as GoogleEvent, user?.email);
+                          // Check if the event is accepted by the user
+                          const isAccepted = !isGoogleEvent || hasUserAcceptedEvent(item as GoogleEvent, user?.email);
 
-                      return (
-                        <div
-                          key={isGoogleEvent ? item.id : item.id.toString()}
-                          className={`${taskClasses} task-card select-none`}
-                          style={{
-                            top: `${topPercent}%`,
-                            height: `${Math.max(heightPercent, 5)}%`,
-                            backgroundColor: isCompleted ? undefined : (isGoogleEvent && !isAccepted ? `${bgColor}4D` : bgColor), // 4D = 30% opacity in hex
-                            borderColor: bgColor,
-                            width: `calc(${width}% - 2px)`,
-                            left: `${left}%`,
-                            right: 'auto',
-                            borderWidth: '1px',
-                            borderStyle: 'solid',
-                            touchAction: 'none',
-                            WebkitTouchCallout: 'none', // Prevent iOS callout
-                            WebkitUserSelect: 'none', // Prevent text selection
-                            userSelect: 'none', // Prevent text selection
-                            opacity: isCompleted ? '0.6' : '1', // Keep border and text at full opacity
-                          }}
-                          draggable={!isGoogleEvent && !isCompleted}
-                          onTouchStart={(e) => !isGoogleEvent && handleTouchStart(e, item as Task, bgColor || '#3b82f6')}
-                          onTouchMove={handleTouchMove}
-                          onTouchEnd={handleTouchEnd}
-                          onDragStart={(e) => {
-                            if (isGoogleEvent) return;
-                            e.stopPropagation();
-                            setDraggedTask(item as Task);
+                          return (
+                            <div
+                              key={isGoogleEvent ? item.id : item.id.toString()}
+                              className={`${taskClasses} task-card select-none`}
+                              style={{
+                                top: `${topPercent}%`,
+                                height: `${Math.max(heightPercent, 5)}%`,
+                                backgroundColor: isCompleted ? undefined : (isGoogleEvent && !isAccepted ? `${bgColor}4D` : bgColor), // 4D = 30% opacity in hex
+                                borderColor: bgColor,
+                                width: `calc(${width}% - 2px)`,
+                                left: `${left}%`,
+                                right: 'auto',
+                                borderWidth: '1px',
+                                borderStyle: 'solid',
+                                touchAction: 'none',
+                                WebkitTouchCallout: 'none', // Prevent iOS callout
+                                WebkitUserSelect: 'none', // Prevent text selection
+                                userSelect: 'none', // Prevent text selection
+                                opacity: isCompleted ? '0.6' : '1', // Keep border and text at full opacity
+                              }}
+                              draggable={!isGoogleEvent && !isCompleted}
+                              onTouchStart={(e) => !isGoogleEvent && handleTouchStart(e, item as Task, bgColor || '#3b82f6')}
+                              onTouchMove={handleTouchMove}
+                              onTouchEnd={handleTouchEnd}
+                              onDragStart={(e) => {
+                                if (isGoogleEvent) return;
+                                e.stopPropagation();
+                                setDraggedTask(item as Task);
 
-                            // Clone the current element for the drag image
-                            const originalElement = e.currentTarget;
-                            const dragImage = originalElement.cloneNode(true) as HTMLElement;
-                            
-                            // Set up the ghost image container with fixed dimensions
-                            dragImage.style.position = 'absolute';
-                            dragImage.style.top = '-1000px';
-                            dragImage.style.width = '200px'; // Fixed width to match task card
-                            dragImage.style.height = '32px'; // Fixed height to match time slot
-                            dragImage.style.backgroundColor = bgColor || '#3b82f6';
-                            dragImage.style.borderRadius = '4px';
-                            dragImage.style.padding = '4px 8px';
-                            dragImage.style.opacity = '0.9';
-                            dragImage.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                            dragImage.style.pointerEvents = 'none';
-                            dragImage.style.transform = 'none';
-                            dragImage.style.left = '0';
-                            
-                            document.body.appendChild(dragImage);
-                            e.dataTransfer.setDragImage(dragImage, 100, 16); // Center horizontally and vertically
-                            setTimeout(() => document.body.removeChild(dragImage), 0);
-                          }}
-                          onDragEnd={() => {
-                            if (isGoogleEvent) return;
-                            setDraggedTask(null);
-                            setDragOverSlot(null);
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (isGoogleEvent) {
-                              handleGoogleEventClick(item as GoogleEvent);
-                            } else if (!isCompleted) {
-                              handleTaskClick(item as Task);
-                            }
-                          }}
-                        >
-                          <p className="font-medium truncate">
-                            {title}
-                          </p>
-                        </div>
-                      );
-                    })}
+                                // Clone the current element for the drag image
+                                const originalElement = e.currentTarget;
+                                const dragImage = originalElement.cloneNode(true) as HTMLElement;
+                                
+                                // Set up the ghost image container with fixed dimensions
+                                dragImage.style.position = 'absolute';
+                                dragImage.style.top = '-1000px';
+                                dragImage.style.width = '200px'; // Fixed width to match task card
+                                dragImage.style.height = '32px'; // Fixed height to match time slot
+                                dragImage.style.backgroundColor = bgColor || '#3b82f6';
+                                dragImage.style.borderRadius = '4px';
+                                dragImage.style.padding = '4px 8px';
+                                dragImage.style.opacity = '0.9';
+                                dragImage.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                                dragImage.style.pointerEvents = 'none';
+                                dragImage.style.transform = 'none';
+                                dragImage.style.left = '0';
+                                
+                                document.body.appendChild(dragImage);
+                                e.dataTransfer.setDragImage(dragImage, 100, 16); // Center horizontally and vertically
+                                setTimeout(() => document.body.removeChild(dragImage), 0);
+                              }}
+                              onDragEnd={() => {
+                                if (isGoogleEvent) return;
+                                setDraggedTask(null);
+                                setDragOverSlot(null);
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isGoogleEvent) {
+                                  handleGoogleEventClick(item as GoogleEvent);
+                                } else if (!isCompleted) {
+                                  handleTaskClick(item as Task);
+                                }
+                              }}
+                            >
+                              <p className="font-medium truncate">
+                                {title}
+                              </p>
+                            </div>
+                          );
+                        });
+                      });
+                    })()}
                   </div>
                 );
               })}
@@ -797,4 +871,4 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
       )}
     </div>
   );
-} 
+}
