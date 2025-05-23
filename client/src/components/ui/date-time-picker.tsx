@@ -32,7 +32,7 @@ export function RangeTimePicker({
   placeholder = "Pick date and time range",
 }: RangeTimePickerProps) {
   const minuteOptions = Array.from({ length: 4 }, (_, i) => i * 15);
-  const hourOptions = Array.from({ length: 11 }, (_, i) => i + 8);
+  const hourOptions = Array.from({ length: 18 }, (_, i) => i + 6);
 
   const [dateOpen, setDateOpen] = React.useState(false);
   const [timeOpen, setTimeOpen] = React.useState(false);
@@ -176,7 +176,7 @@ export function RangeTimePicker({
                   <SelectTrigger className="w-[100px]">
                     <SelectValue placeholder="Hour" />
                   </SelectTrigger>
-                  <SelectContent className="z-[99999]">
+                  <SelectContent className="z-[99999] max-h-[200px] overflow-y-auto">
                     {hourOptions.map((hour) => (
                       <SelectItem key={hour} value={hour.toString()}>
                         {hour.toString().padStart(2, "0")}:00
@@ -221,7 +221,7 @@ export function RangeTimePicker({
                   <SelectTrigger className="w-[100px]">
                     <SelectValue placeholder="Hour" />
                   </SelectTrigger>
-                  <SelectContent className="z-[99999]">
+                  <SelectContent className="z-[99999] max-h-[200px] overflow-y-auto">
                     {hourOptions.map((hour) => (
                       <SelectItem key={hour} value={hour.toString()}>
                         {hour.toString().padStart(2, "0")}:00

@@ -1,12 +1,16 @@
 import { format, parseISO, isValid } from 'date-fns';
 import { TimeSlot } from './types';
 
-// Calendar time configuration
-export const CALENDAR_START_HOUR = 8;
-export const CALENDAR_END_HOUR = 19; // Extended to 7 PM to include the last slot
+// Calendar time configuration - 6am to midnight (18 hours)
+export const CALENDAR_START_HOUR = 6;
+export const CALENDAR_END_HOUR = 24; // Midnight
 export const TOTAL_CALENDAR_MINUTES = (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 60;
 
-// Generate time slots from 8 AM to 6 PM
+// Initial view configuration (9am to 6pm)
+export const INITIAL_VIEW_START_HOUR = 9;
+export const INITIAL_VIEW_END_HOUR = 18;
+
+// Generate time slots from 6 AM to midnight
 export function generateTimeSlots(): TimeSlot[] {
   const slots: TimeSlot[] = [];
   for (let hour = CALENDAR_START_HOUR; hour < CALENDAR_END_HOUR; hour++) {

@@ -18,6 +18,8 @@ import {
   CALENDAR_START_HOUR, 
   CALENDAR_END_HOUR, 
   TOTAL_CALENDAR_MINUTES, 
+  INITIAL_VIEW_START_HOUR,
+  INITIAL_VIEW_END_HOUR,
   generateTimeSlots, 
   roundToNearest15Minutes, 
   isItemInTimeSlot 
@@ -62,6 +64,9 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
   const [isDragging, setIsDragging] = useState(false);
   const [dragGhost, setDragGhost] = useState<HTMLElement | null>(null);
   const [dragGhostPosition, setDragGhostPosition] = useState<{ x: number; y: number } | null>(null);
+
+  // Ref for the calendar container to handle scrolling
+  const calendarContainerRef = React.useRef<HTMLDivElement>(null);
 
   // Helper function to check if two time ranges actually overlap
   const doTimesOverlap = (start1: Date, end1: Date, start2: Date, end2: Date): boolean => {
@@ -182,6 +187,24 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
     const currentDayOfWeek = getDay(currentDate);
     setMobileViewOffset(currentDayOfWeek >= 3 && currentDayOfWeek <= 5 ? 'late' : 'early');
   }, []);
+
+  // Effect to scroll to initial view position (9am)
+  useEffect(() => {
+    const scrollToInitialPosition = () => {
+      if (calendarContainerRef.current) {
+        // Calculate the scroll position for 9am
+        // Each time slot is 32px (h-8 = 2rem = 32px), and we have 2 slots per hour
+        const slotsBeforeInitialView = (INITIAL_VIEW_START_HOUR - CALENDAR_START_HOUR) * 2;
+        const scrollPosition = slotsBeforeInitialView * 32; // 32px per slot
+        
+        calendarContainerRef.current.scrollTop = scrollPosition;
+      }
+    };
+
+    // Scroll to initial position after a short delay to ensure DOM is ready
+    const timer = setTimeout(scrollToInitialPosition, 100);
+    return () => clearTimeout(timer);
+  }, [currentDate]); // Re-run when week changes
 
   // Effect to update current time every minute
   useEffect(() => {
@@ -569,7 +592,9 @@ export default function Calendar({ tasks, onRefetch, scheduledTaskId }: Calendar
       </div>
       
       <div className="border-t border-gray-200 overflow-x-hidden">
-        <div className={`grid md:grid-cols-[auto_repeat(5,minmax(0,1fr))] grid-cols-[auto_repeat(3,minmax(0,1fr))] md:min-w-[800px]`}>
+        <div 
+          ref={calendarContainerRef}
+          className={`grid md:grid-cols-[auto_repeat(5,minmax(0,1fr))] grid-cols-[auto_repeat(3,minmax(0,1fr))] md:min-w-[800px] overflow-y-auto max-h-[calc(100vh-200px)]`}>
           <div className="sticky top-0 z-20 bg-white border-r border-b border-gray-200 p-2 text-xs font-medium text-gray-500 text-center">Time</div>
           {visibleDays.map(day => (
               <div 
