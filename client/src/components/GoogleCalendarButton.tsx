@@ -46,7 +46,7 @@ export default function GoogleCalendarButton() {
 
       const oauthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
       oauthUrl.searchParams.append('client_id', CLIENT_ID);
-      oauthUrl.searchParams.append('redirect_uri', 'https://groov-tasks.vercel.app/auth/google/callback');
+      oauthUrl.searchParams.append('redirect_uri', 'https://groov-tasks.com/auth/google/callback');
       oauthUrl.searchParams.append('response_type', 'code');
       oauthUrl.searchParams.append('scope', SCOPES);
       oauthUrl.searchParams.append('access_type', 'offline');
