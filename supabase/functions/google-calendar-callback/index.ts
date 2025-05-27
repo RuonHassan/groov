@@ -11,7 +11,7 @@ const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID');
 const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
-const REDIRECT_URI = Deno.env.get('REDIRECT_URI') || 'https://groov-tasks.vercel.app/auth/google/callback';
+const REDIRECT_URI = Deno.env.get('REDIRECT_URI') || 'https://groov-tasks.com/auth/google/callback';
 const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
 
 serve(async (req) => {
