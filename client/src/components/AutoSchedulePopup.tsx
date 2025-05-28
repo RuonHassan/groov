@@ -138,7 +138,7 @@ const findNextAvailableSlot = (date: Date, existingEvents: (CalendarTimeSlot | T
 interface AutoSchedulePopupProps {
   open: boolean;
   onClose: () => void;
-  section: "today" | "tomorrow";
+  section: "today" | "tomorrow" | "someday";
   unscheduledTasks: Task[];
 }
 
@@ -150,7 +150,7 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
   const handleAutoSchedule = async () => {
     setIsScheduling(true);
     const today = roundToNearestInterval(new Date());
-    const targetDate = section === "today" ? today : dfnsAddDays(today, 1);
+    const targetDate = section === "today" ? today : section === "tomorrow" ? dfnsAddDays(today, 1) : today;
     
     try {
       // Get Google Calendar events
@@ -180,9 +180,9 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
       const allEvents = [...convertedGoogleEvents, ...scheduledTasks];
 
       // Start scheduling
-      let startTime = section === "today" 
-        ? roundToNearestInterval(today)
-        : getStartOfBusinessHours(targetDate);
+      let startTime = section === "tomorrow"
+        ? getStartOfBusinessHours(targetDate)
+        : roundToNearestInterval(today);
 
       // Schedule each task
       for (const task of unscheduledTasks) {

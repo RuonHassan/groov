@@ -143,12 +143,12 @@ export default function TaskGrid() {
   const { isConnected, calendars, fetchEvents } = useGoogleCalendar();
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [quickTaskTitle, setQuickTaskTitle] = useState("");
-  const [activeQuickAdd, setActiveQuickAdd] = useState<"today" | "tomorrow" | null>(null);
+  const [activeQuickAdd, setActiveQuickAdd] = useState<"today" | "tomorrow" | "someday" | null>(null);
   const [showCompletedPopup, setShowCompletedPopup] = useState(false);
   const [showAutoSchedulePopup, setShowAutoSchedulePopup] = useState(false);
-  const [autoScheduleSection, setAutoScheduleSection] = useState<"today" | "tomorrow">("today");
+  const [autoScheduleSection, setAutoScheduleSection] = useState<"today" | "tomorrow" | "someday">("today");
 
-  // Organize tasks into Today, Tomorrow, Future, Someday, and Completed
+  // Organize tasks into Today, Tomorrow, Future, Someday, Overdue, and Completed
   const organizedTasks = useMemo(() => {
     const today = startOfDay(new Date());
     const tomorrow = startOfDay(dfnsAddDays(today, 1));
@@ -164,8 +164,8 @@ export default function TaskGrid() {
         if (task.start_time) {
           const startTimeDate = startOfDay(parseISO(task.start_time));
           if (isBefore(startTimeDate, today)) {
-            // Move overdue tasks to someday
-            acc.someday.push(task);
+            // Overdue tasks
+            acc.overdue.push(task);
           } else if (isSameDay(startTimeDate, today)) {
             acc.today.push(task);
           } else if (isSameDay(startTimeDate, tomorrow)) {
@@ -174,37 +174,41 @@ export default function TaskGrid() {
             acc.future.push(task);
           }
         } else {
+          // Unscheduled tasks go to Someday
           acc.someday.push(task);
         }
         return acc;
       },
-      { today: [] as Task[], tomorrow: [] as Task[], future: [] as Task[], someday: [] as Task[] }
+      { today: [] as Task[], tomorrow: [] as Task[], future: [] as Task[], someday: [] as Task[], overdue: [] as Task[] }
     );
 
     return { ...organized, completed: completedTasks };
   }, [tasks]);
 
-  // Get unscheduled tasks for today and tomorrow
+  // Get unscheduled tasks for today, tomorrow and someday
   const unscheduledTasks = useMemo(() => {
-    const today = startOfDay(new Date());
-    const tomorrow = startOfDay(dfnsAddDays(today, 1));
-    
     return {
       today: organizedTasks.today.filter(task => !task.start_time || !task.end_time),
-      tomorrow: organizedTasks.tomorrow.filter(task => !task.start_time || !task.end_time)
+      tomorrow: organizedTasks.tomorrow.filter(task => !task.start_time || !task.end_time),
+      someday: organizedTasks.someday.filter(task => !task.start_time || !task.end_time)
     };
   }, [organizedTasks]);
 
   // Quick Add handler
-  const handleQuickAddKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>, section: "today" | "tomorrow") => {
+  const handleQuickAddKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>, section: "today" | "tomorrow" | "someday") => {
     if (e.key === "Enter" && quickTaskTitle.trim()) {
       const today = new Date();
-      const taskDate = section === "today" ? today : dfnsAddDays(today, 1);
-      
+      let taskDate: Date | null = null;
+      if (section === "today") {
+        taskDate = today;
+      } else if (section === "tomorrow") {
+        taskDate = dfnsAddDays(today, 1);
+      }
+
       try {
         await addTask({
           title: quickTaskTitle,
-          start_time: taskDate.toISOString(),
+          ...(taskDate ? { start_time: taskDate.toISOString() } : {}),
           color: "#6C584C",
         });
         setQuickTaskTitle("");
@@ -219,14 +223,14 @@ export default function TaskGrid() {
   };
 
   // Update renderSection to include the auto-schedule button
-  const renderSection = (title: string, tasks: Task[], section: "today" | "tomorrow" | "future" | "someday" | "completed", alwaysShow: boolean = false) => {
+  const renderSection = (title: string, tasks: Task[], section: "today" | "tomorrow" | "future" | "someday" | "overdue" | "completed", alwaysShow: boolean = false) => {
     // Keep the condition to hide empty Future/Someday sections if not always shown
     if (tasks.length === 0 && !alwaysShow && section !== "today" && section !== "tomorrow") return null;
 
     // Determine if this section should have a Quick Add feature
-    const canQuickAdd = section === "today" || section === "tomorrow";
-    const hasUnscheduledTasks = section === "today" || section === "tomorrow" 
-      ? unscheduledTasks[section].length > 0 
+    const canQuickAdd = section === "today" || section === "tomorrow" || section === "someday";
+    const hasUnscheduledTasks = section === "today" || section === "tomorrow" || section === "someday"
+      ? unscheduledTasks[section].length > 0
       : false;
 
     // Special styling for completed section
@@ -264,7 +268,7 @@ export default function TaskGrid() {
           </Button>
         </div>
       )
-    ) : null; // No Quick Add for Future/Someday
+    ) : null; // No Quick Add for Future/Overdue
 
     return (
       <div>
@@ -281,7 +285,7 @@ export default function TaskGrid() {
                 className="h-6 w-6 -mr-2 text-gray-400 hover:text-gray-600 hover:bg-transparent p-0"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setAutoScheduleSection(section as "today" | "tomorrow");
+                  setAutoScheduleSection(section as "today" | "tomorrow" | "someday");
                   setShowAutoSchedulePopup(true);
                 }}
               >
@@ -344,6 +348,7 @@ export default function TaskGrid() {
         {renderSection("Future", organizedTasks.future, "future", true)}
         <div className="h-8" />
         {renderSection("Someday", organizedTasks.someday, "someday", true)}
+        {renderSection("Overdue", organizedTasks.overdue, "overdue", true)}
         <NewTaskCard />
       </div>
 
