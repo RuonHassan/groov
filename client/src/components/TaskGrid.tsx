@@ -147,7 +147,7 @@ export default function TaskGrid() {
   const [activeQuickAdd, setActiveQuickAdd] = useState<"today" | "tomorrow" | "someday" | null>(null);
   const [showCompletedPopup, setShowCompletedPopup] = useState(false);
   const [showAutoSchedulePopup, setShowAutoSchedulePopup] = useState(false);
-  const [autoScheduleSection, setAutoScheduleSection] = useState<"today" | "tomorrow" | "someday">("today");
+  const [autoScheduleSection, setAutoScheduleSection] = useState<"today" | "tomorrow" | "someday" | "overdue">("today");
   
   // Add state for collapsed sections
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
@@ -220,12 +220,14 @@ export default function TaskGrid() {
     return { ...organized, completed: completedTasks };
   }, [tasks]);
 
-  // Get unscheduled tasks for today, tomorrow and someday
+  // Get unscheduled tasks for today, tomorrow, someday, and overdue
   const unscheduledTasks = useMemo(() => {
     return {
       today: organizedTasks.today.filter(task => !task.start_time || !task.end_time),
       tomorrow: organizedTasks.tomorrow.filter(task => !task.start_time || !task.end_time),
-      someday: organizedTasks.someday.filter(task => !task.start_time || !task.end_time)
+      someday: organizedTasks.someday.filter(task => !task.start_time || !task.end_time),
+      // For overdue: include ALL overdue tasks since auto-schedule will move them from past to future
+      overdue: organizedTasks.overdue // All overdue tasks, regardless of scheduling status
     };
   }, [organizedTasks]);
 
@@ -264,7 +266,7 @@ export default function TaskGrid() {
 
     // Determine if this section should have a Quick Add feature
     const canQuickAdd = section === "today" || section === "tomorrow" || section === "someday";
-    const hasUnscheduledTasks = section === "today" || section === "tomorrow" || section === "someday"
+    const hasUnscheduledTasks = (section === "today" || section === "tomorrow" || section === "someday" || section === "overdue")
       ? unscheduledTasks[section].length > 0
       : false;
 
@@ -321,7 +323,7 @@ export default function TaskGrid() {
                 className="h-6 w-6 -mr-2 text-gray-400 hover:text-gray-600 hover:bg-transparent p-0"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setAutoScheduleSection(section as "today" | "tomorrow" | "someday");
+                  setAutoScheduleSection(section as "today" | "tomorrow" | "someday" | "overdue");
                   setShowAutoSchedulePopup(true);
                 }}
               >

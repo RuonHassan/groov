@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Task } from "@shared/schema";
 import { useGoogleCalendar } from "@/contexts/GoogleCalendarContext";
 import { useTaskContext } from "@/contexts/TaskContext";
-import { addDays as dfnsAddDays, addMinutes, getDay, getHours, getMinutes, isBefore, isValid, parseISO, set, startOfDay } from "date-fns";
+import { addDays as dfnsAddDays, addMinutes, getDay, getHours, getMinutes, isBefore, isValid, parseISO, set, startOfDay, format } from "date-fns";
 import { estimateDuration } from "@/lib/gemini";
 import { parseTaskTitle, checkTimeConflict } from "@/lib/taskParsing";
 import { Loader2 } from "lucide-react";
@@ -85,6 +85,7 @@ const findNextAvailableSlot = (date: Date, duration: number, existingEvents: (Ca
 
   const MAX_DAYS_TO_CHECK = 14;
   let daysChecked = 0;
+  const BUSINESS_HOURS_PER_DAY = (BUSINESS_END_HOUR - BUSINESS_START_HOUR) * 60 - 60; // 8 hours - 1 hour lunch = 7 hours = 420 minutes
 
   while (daysChecked < MAX_DAYS_TO_CHECK) {
     if (getHours(startTime) >= BUSINESS_END_HOUR) {
@@ -94,16 +95,40 @@ const findNextAvailableSlot = (date: Date, duration: number, existingEvents: (Ca
     }
 
     startTime = roundToNearestInterval(startTime);
-    const endTime = addMinutes(startTime, duration);
+    
+    // For very long tasks (> 7 hours), we need to cap the duration to fit within business hours
+    // and potentially schedule continuation on subsequent days
+    const maxDurationToday = getEndOfBusinessHours(startTime).getTime() - startTime.getTime();
+    const maxDurationTodayMinutes = Math.floor(maxDurationToday / (1000 * 60));
+    
+    // Calculate how much we can fit today, accounting for lunch break
+    let availableTimeToday = maxDurationTodayMinutes;
+    const lunchStartTime = set(startTime, { hours: LUNCH_START_HOUR, minutes: LUNCH_START_MINUTE });
+    const lunchEndTime = set(startTime, { hours: LUNCH_END_HOUR, minutes: LUNCH_END_MINUTE });
+    
+    // If the task would span lunch time, subtract lunch duration
+    if (startTime < lunchStartTime && addMinutes(startTime, Math.min(duration, availableTimeToday)) > lunchStartTime) {
+      availableTimeToday -= 60; // 1 hour lunch break
+    }
+    
+    // Use the smaller of requested duration or available time today
+    const effectiveDuration = Math.min(duration, availableTimeToday);
+    const endTime = addMinutes(startTime, effectiveDuration);
     let slotOccupied = false;
 
     // Check if slot overlaps with lunch time
-    if (isLunchTime(startTime) || isLunchTime(addMinutes(startTime, duration - 1))) {
+    if (isLunchTime(startTime) || (effectiveDuration > 0 && isLunchTime(addMinutes(startTime, effectiveDuration - 1)))) {
       startTime = set(startTime, { 
         hours: LUNCH_END_HOUR, 
         minutes: LUNCH_END_MINUTE 
       });
       continue;
+    }
+
+    // Adjust end time to skip lunch if task spans across lunch
+    let adjustedEndTime = endTime;
+    if (startTime < lunchStartTime && endTime > lunchStartTime) {
+      adjustedEndTime = addMinutes(endTime, 60); // Add lunch break duration
     }
 
     for (const event of existingEvents) {
@@ -113,7 +138,7 @@ const findNextAvailableSlot = (date: Date, duration: number, existingEvents: (Ca
         const eventEnd = parseISO(event.end_time);
         if (!isValid(eventStart) || !isValid(eventEnd)) continue;
 
-        if (isBefore(eventStart, endTime) && isBefore(startTime, eventEnd)) {
+        if (isBefore(eventStart, adjustedEndTime) && isBefore(startTime, eventEnd)) {
           slotOccupied = true;
           startTime = roundToNearestInterval(addMinutes(eventEnd, 1));
           
@@ -128,7 +153,7 @@ const findNextAvailableSlot = (date: Date, duration: number, existingEvents: (Ca
       }
     }
 
-    if (!slotOccupied && isWithinBusinessHours(startTime)) {
+    if (!slotOccupied && isWithinBusinessHours(startTime) && isWithinBusinessHours(addMinutes(startTime, effectiveDuration - 1))) {
       return roundToNearestInterval(startTime);
     }
 
@@ -163,7 +188,7 @@ interface PendingSchedule {
 interface AutoSchedulePopupProps {
   open: boolean;
   onClose: () => void;
-  section: "today" | "tomorrow" | "someday";
+  section: "today" | "tomorrow" | "someday" | "overdue";
   unscheduledTasks: Task[];
 }
 
@@ -316,7 +341,7 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
     allEvents: Array<{ start_time: string; end_time: string; title?: string; source?: 'task' | 'calendar' }>, 
     targetDate: Date
   ) => {
-    let startTime = section === "tomorrow"
+    let startTime = (section === "tomorrow")
       ? getStartOfBusinessHours(targetDate)
       : roundToNearestInterval(new Date());
 
@@ -345,7 +370,7 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
   const handleAutoSchedule = async () => {
     setIsScheduling(true);
     const today = roundToNearestInterval(new Date());
-    const targetDate = section === "today" ? today : section === "tomorrow" ? dfnsAddDays(today, 1) : today;
+    const targetDate = section === "today" ? today : section === "tomorrow" ? dfnsAddDays(today, 1) : section === "overdue" ? today : today;
     
     try {
       // Get Google Calendar events
@@ -367,10 +392,12 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
         source: 'calendar'
       }));
 
-      // Get scheduled tasks
+      // Get scheduled tasks (exclude overdue tasks from conflicts if we're rescheduling overdue)
       const scheduledTasks = tasks.filter(task => 
         task.start_time && 
-        task.end_time
+        task.end_time &&
+        // If we're handling overdue tasks, exclude them from the conflict list since we're moving them
+        !(section === "overdue" && unscheduledTasks.some(overdueTask => overdueTask.id === task.id))
       ).map(task => ({
         start_time: task.start_time!,
         end_time: task.end_time!,
@@ -381,6 +408,92 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
       // Combine all events
       const allEvents = [...convertedGoogleEvents, ...scheduledTasks];
 
+      // Handle overdue tasks differently - they need to be moved from past to future
+      if (section === "overdue") {
+        // For overdue tasks, we first clear their current schedule and then reschedule them
+        const tasksWithDurations: TaskWithParsedInfo[] = [];
+        for (const task of unscheduledTasks) {
+          let duration = 30; // default fallback
+          
+          // If task has both start and end time, preserve the original duration
+          if (task.start_time && task.end_time) {
+            try {
+              const originalStart = parseISO(task.start_time);
+              const originalEnd = parseISO(task.end_time);
+              if (isValid(originalStart) && isValid(originalEnd)) {
+                // Calculate original duration in minutes
+                duration = Math.round((originalEnd.getTime() - originalStart.getTime()) / (1000 * 60));
+              }
+            } catch (e) {
+              console.error("Error calculating original duration for overdue task:", task, e);
+              // Fall back to estimation if we can't parse the original times
+              duration = await estimateDuration(task.title, task.notes);
+            }
+          } else {
+            // Only estimate duration for tasks without end times
+            const parsedInfo = parseTaskTitle(task.title, targetDate);
+            const title = parsedInfo.cleanTitle.toLowerCase();
+            const isEmail = /email|e-mail|send/.test(title);
+            const isSlides = /slide|slides|prep|preparing|presentation/.test(title);
+
+            if (isEmail) {
+              duration = 15;
+            } else if (isSlides) {
+              duration = 30;
+            } else if (parsedInfo.hasDurationSpecification && parsedInfo.specifiedDuration) {
+              duration = parsedInfo.specifiedDuration;
+            } else {
+              duration = await estimateDuration(parsedInfo.cleanTitle, task.notes);
+            }
+          }
+
+          // Clear the existing schedule for overdue tasks
+          if (task.start_time && task.end_time) {
+            await updateTask(task.id, {
+              ...task,
+              start_time: null,
+              end_time: null
+            });
+          }
+
+          const parsedInfo = parseTaskTitle(task.title, targetDate);
+          tasksWithDurations.push({ 
+            task, 
+            duration, 
+            isEmail: /email|e-mail|send/.test(parsedInfo.cleanTitle.toLowerCase()),
+            parsedInfo,
+            hasSpecificTime: false, // Don't honor past time specifications for overdue tasks
+            specifiedTime: undefined
+          });
+        }
+
+        // Schedule all overdue tasks starting from now
+        let startTime = roundToNearestInterval(today);
+        for (const taskInfo of tasksWithDurations) {
+          const nextSlot = findNextAvailableSlot(startTime, taskInfo.duration, allEvents);
+          if (nextSlot) {
+            const endTime = addMinutes(nextSlot, taskInfo.duration);
+            await updateTask(taskInfo.task.id, {
+              ...taskInfo.task,
+              title: taskInfo.parsedInfo.cleanTitle,
+              start_time: nextSlot.toISOString(),
+              end_time: endTime.toISOString()
+            });
+            allEvents.push({
+              start_time: nextSlot.toISOString(),
+              end_time: endTime.toISOString(),
+              title: taskInfo.parsedInfo.cleanTitle,
+              source: 'task' as const
+            });
+            startTime = endTime;
+          }
+        }
+
+        onClose();
+        return;
+      }
+
+      // Regular handling for non-overdue tasks (existing logic)
       // Parse and prepare tasks with durations and time specifications
       const tasksWithDurations: TaskWithParsedInfo[] = [];
       for (const task of unscheduledTasks) {
@@ -397,7 +510,7 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
         } else if (parsedInfo.hasDurationSpecification && parsedInfo.specifiedDuration) {
           duration = parsedInfo.specifiedDuration;
         } else {
-          duration = await estimateDuration(parsedInfo.cleanTitle);
+          duration = await estimateDuration(parsedInfo.cleanTitle, task.notes);
         }
 
         tasksWithDurations.push({ 
@@ -440,7 +553,7 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
       }
 
       // If no conflicts, proceed with normal scheduling
-      let startTime = section === "tomorrow"
+      let startTime = (section === "tomorrow")
         ? getStartOfBusinessHours(targetDate)
         : roundToNearestInterval(today);
 
@@ -487,8 +600,11 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
           <DialogHeader>
             <DialogTitle className="text-lg">Let us put these in your calendar for you?</DialogTitle>
             <DialogDescription className="text-sm">
-              We'll schedule them for the next available slots, keeping your lunch free!
-              {tasksWithSpecificTimes > 0 && (
+              {section === "overdue" 
+                ? "We'll move these overdue tasks from their past schedule to the next available slots, keeping your lunch free!"
+                : "We'll schedule them for the next available slots, keeping your lunch free! Tasks longer than a business day will be intelligently split across multiple days."
+              }
+              {tasksWithSpecificTimes > 0 && section !== "overdue" && (
                 <span className="block mt-1 text-blue-600 font-medium">
                   {tasksWithSpecificTimes} task{tasksWithSpecificTimes > 1 ? 's have' : ' has'} specific time requirements.
                 </span>
@@ -497,17 +613,32 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
           </DialogHeader>
 
           <div className="py-2">
-            <h4 className="mb-1.5 font-medium text-sm">Tasks to be scheduled:</h4>
+            <h4 className="mb-1.5 font-medium text-sm">
+              {section === "overdue" ? "Overdue tasks to be moved:" : "Tasks to be scheduled:"}
+            </h4>
             <ul className="space-y-1">
               {unscheduledTasks.map(task => {
                 const parsed = parseTaskTitle(task.title);
                 const hasSpecificRequirements = parsed.hasTimeSpecification || parsed.hasDaySpecification || parsed.hasDurationSpecification;
+                const isOverdueWithSchedule = section === "overdue" && task.start_time;
                 return (
                   <li key={task.id} className="text-sm text-gray-600 flex">
                     <span className="mr-2 flex-shrink-0">•</span>
-                    <span className={hasSpecificRequirements ? "font-medium text-blue-600" : ""}>
-                      {task.title}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className={hasSpecificRequirements && section !== "overdue" ? "font-medium text-blue-600" : ""}>
+                        {task.title}
+                      </span>
+                      {isOverdueWithSchedule && (
+                        <span className="text-xs text-red-500 mt-0.5">
+                          Currently: {format(parseISO(task.start_time!), "MMM d, h:mm a")}
+                          {task.end_time && (
+                            <span className="ml-2 text-gray-500">
+                              ({Math.round((parseISO(task.end_time).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))} min)
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
                   </li>
                 );
               })}
