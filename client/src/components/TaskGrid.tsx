@@ -11,6 +11,7 @@ import { Button } from "./ui/button";
 import CompletedTasksPopup from "./CompletedTasksPopup";
 import { useGoogleCalendar } from "@/contexts/GoogleCalendarContext";
 import AutoSchedulePopup from "./AutoSchedulePopup";
+import { parseTaskTitle } from "@/lib/taskParsing";
 
 // Add type for calendar events
 type CalendarTimeSlot = {
@@ -283,7 +284,7 @@ export default function TaskGrid() {
         <div className="px-4 py-3">
           <Input
             autoFocus
-            placeholder={`Add task for ${title} & schedule...`}
+            placeholder={`Add task for ${title}...`}
             value={quickTaskTitle}
             onChange={(e) => setQuickTaskTitle(e.target.value)}
             onKeyDown={(e) => handleQuickAddKeyDown(e, section)}
