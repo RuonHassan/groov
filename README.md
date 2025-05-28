@@ -116,8 +116,8 @@ The project follows a monorepo-like structure with shared code:
     *   Time: Estimated time to complete
     *   Due Date: Optional deadline
 *   **Auto-Schedule Feature:**
-    *   Smart scheduling button in Today/Tomorrow sections
-    *   Uses AI to estimate task duration (15-60 min)
+    *   Smart scheduling button in Today/Tomorrow/Someday sections
+    *   Uses AI to estimate task duration (15-60 min) and schedules tasks in 30-minute blocks
     *   Respects business hours (9 AM - 5 PM)
     *   Blocks out lunch break (12:30 PM - 1:30 PM)
     *   Skips weekends
@@ -152,7 +152,7 @@ The project follows a monorepo-like structure with shared code:
 *   **Session Management:** Persistent sessions with token refresh
 
 ### 5. Smart Organization
-*   **Temporal Sectioning:** Tasks automatically organized into Today, Tomorrow, and Future sections
+*   **Temporal Sectioning:** Tasks automatically organized into Today, Tomorrow, Future, Someday, and Overdue sections
 *   **Context Filtering:** Filter tasks by context, energy level, or priority
 *   **Project Grouping:** Group related tasks as projects
 
