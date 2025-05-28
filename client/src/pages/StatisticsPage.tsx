@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useTaskContext } from "@/contexts/TaskContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, isWithinInterval, isSameDay, isSameWeek, isSameMonth } from "date-fns";
@@ -26,6 +27,7 @@ interface TimeblockingData {
 export default function StatisticsPage() {
   const { tasks } = useTaskContext();
   const [viewType, setViewType] = useState<ViewType>("week");
+  const [selectedWeek, setSelectedWeek] = useState<Date>(new Date());
 
   // Filter completed tasks
   const completedTasks = useMemo(() => {
@@ -82,6 +84,63 @@ export default function StatisticsPage() {
       dayShort: day.substring(0, 3) // Mon, Tue, etc.
     }));
   }, [completedTasks]);
+
+  // Calculate weekly completion data
+  const weeklyCompletionData = useMemo(() => {
+    const weekStart = startOfWeek(selectedWeek, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(selectedWeek, { weekStartsOn: 1 });
+    
+    // Filter tasks for the selected week
+    const weekTasks = tasks.filter(task => {
+      const taskDate = parseISO(task.created_at);
+      return isWithinInterval(taskDate, { start: weekStart, end: weekEnd });
+    });
+    
+    const completed = weekTasks.filter(task => task.completed_at).length;
+    const uncompleted = weekTasks.filter(task => !task.completed_at).length;
+    const total = completed + uncompleted;
+    
+    if (total === 0) {
+      return [];
+    }
+    
+    return [
+      {
+        name: "Completed",
+        value: completed,
+        percentage: Math.round((completed / total) * 100),
+        color: "hsl(var(--primary))"
+      },
+      {
+        name: "Uncompleted",
+        value: uncompleted,
+        percentage: Math.round((uncompleted / total) * 100),
+        color: "hsl(var(--destructive))"
+      }
+    ];
+  }, [tasks, selectedWeek]);
+
+  // Generate available weeks for selection
+  const availableWeeks = useMemo(() => {
+    const now = new Date();
+    const weeks = [];
+    
+    // Get last 8 weeks
+    for (let i = 0; i < 8; i++) {
+      const weekDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (i * 7));
+      const weekStart = startOfWeek(weekDate, { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(weekDate, { weekStartsOn: 1 });
+      
+      weeks.push({
+        date: weekDate,
+        label: `${format(weekStart, "MMM dd")} - ${format(weekEnd, "MMM dd, yyyy")}`,
+        startDate: weekStart,
+        endDate: weekEnd
+      });
+    }
+    
+    return weeks;
+  }, []);
 
   // Generate chart data based on view type
   const chartData = useMemo(() => {
@@ -297,9 +356,153 @@ export default function StatisticsPage() {
             </Card>
           </div>
 
+          {/* Weekly Progress Chart - Takes 1/3 width */}
+          <div className="lg:col-span-1">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-5 w-5 text-primary" />
+                  <div>
+                    <CardTitle className="text-lg">Weekly Progress</CardTitle>
+                    <CardDescription>Completed vs uncompleted tasks</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Week Selector */}
+                  <Select
+                    value={selectedWeek.toISOString()}
+                    onValueChange={(value) => setSelectedWeek(new Date(value))}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a week" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableWeeks.map((week, index) => (
+                        <SelectItem key={index} value={week.date.toISOString()}>
+                          {week.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {weeklyCompletionData.length > 0 ? (
+                    <div className="space-y-4">
+                      <ChartContainer 
+                        config={{
+                          completed: {
+                            label: "Completed",
+                            color: "hsl(var(--primary))",
+                          },
+                          uncompleted: {
+                            label: "Uncompleted", 
+                            color: "hsl(var(--destructive))",
+                          },
+                        }} 
+                        className="h-[200px] w-full"
+                      >
+                        <PieChart>
+                          <Pie
+                            data={weeklyCompletionData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={40}
+                            outerRadius={80}
+                            paddingAngle={2}
+                            dataKey="value"
+                          >
+                            {weeklyCompletionData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <ChartTooltip 
+                            content={<ChartTooltipContent 
+                              formatter={(value, name) => [
+                                `${value} task${value !== 1 ? 's' : ''} (${weeklyCompletionData.find(d => d.name === name)?.percentage}%)`,
+                                name
+                              ]}
+                            />} 
+                          />
+                        </PieChart>
+                      </ChartContainer>
+                      
+                      {/* Legend */}
+                      <div className="space-y-2">
+                        {weeklyCompletionData.map((item, index) => (
+                          <div key={index} className="flex items-center justify-between text-sm">
+                            <div className="flex items-center space-x-2">
+                              <div 
+                                className="w-3 h-3 rounded-full" 
+                                style={{ backgroundColor: item.color }}
+                              />
+                              <span className="text-muted-foreground">{item.name}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <span className="font-medium">{item.value}</span>
+                              <span className="text-muted-foreground">({item.percentage}%)</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                      <div className="text-center">
+                        <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p>No tasks for this week</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Day of Week Analysis - Takes 2/3 width */}
+          <div className="lg:col-span-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Productivity by Day of Week</CardTitle>
+                <CardDescription>Which days are you most productive?</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                  <BarChart data={dayOfWeekData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="dayShort" 
+                      tick={{ fontSize: 12 }}
+                    />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <ChartTooltip 
+                      content={<ChartTooltipContent 
+                        formatter={(value, name) => [
+                          `${value} task${value !== 1 ? 's' : ''}`,
+                          'Completed'
+                        ]}
+                        labelFormatter={(label, payload) => {
+                          if (payload && payload[0]) {
+                            return payload[0].payload.day; // Show full day name in tooltip
+                          }
+                          return label;
+                        }}
+                      />} 
+                    />
+                    <Bar 
+                      dataKey="completed" 
+                      fill="var(--color-completed)" 
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Timeblocking Pie Chart - Takes 1/3 width */}
           <div className="lg:col-span-1">
-            <Card className="h-full">
+            <Card>
               <CardHeader>
                 <div className="flex items-center space-x-2">
                   <Clock className="h-5 w-5 text-primary" />
@@ -381,45 +584,6 @@ export default function StatisticsPage() {
             </Card>
           </div>
         </div>
-
-        {/* Day of Week Analysis */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Productivity by Day of Week</CardTitle>
-            <CardDescription>Which days are you most productive?</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig} className="h-[300px] w-full">
-              <BarChart data={dayOfWeekData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="dayShort" 
-                  tick={{ fontSize: 12 }}
-                />
-                <YAxis tick={{ fontSize: 12 }} />
-                <ChartTooltip 
-                  content={<ChartTooltipContent 
-                    formatter={(value, name) => [
-                      `${value} task${value !== 1 ? 's' : ''}`,
-                      'Completed'
-                    ]}
-                    labelFormatter={(label, payload) => {
-                      if (payload && payload[0]) {
-                        return payload[0].payload.day; // Show full day name in tooltip
-                      }
-                      return label;
-                    }}
-                  />} 
-                />
-                <Bar 
-                  dataKey="completed" 
-                  fill="var(--color-completed)" 
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
