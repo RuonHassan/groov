@@ -117,7 +117,7 @@ The project follows a monorepo-like structure with shared code:
     *   Due Date: Optional deadline
 *   **Auto-Schedule Feature:**
     *   Smart scheduling button in Today/Tomorrow sections
-    *   Schedules tasks in 30-minute blocks
+    *   Uses AI to estimate task duration (15-60 min)
     *   Respects business hours (9 AM - 5 PM)
     *   Blocks out lunch break (12:30 PM - 1:30 PM)
     *   Skips weekends
@@ -192,6 +192,7 @@ The project follows a monorepo-like structure with shared code:
     - Weekend skipping
     - 15-minute interval alignment
     - 14-day lookahead
+    - AI-driven duration estimates with email task grouping
     - Mobile-responsive design
   - **UI Elements**:
     - Clean popup dialog

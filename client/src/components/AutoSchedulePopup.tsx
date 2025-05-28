@@ -5,6 +5,7 @@ import { Task } from "@shared/schema";
 import { useGoogleCalendar } from "@/contexts/GoogleCalendarContext";
 import { useTaskContext } from "@/contexts/TaskContext";
 import { addDays as dfnsAddDays, addMinutes, getDay, getHours, getMinutes, isBefore, isValid, parseISO, set, startOfDay } from "date-fns";
+import { estimateDuration } from "@/lib/gemini";
 import { Loader2 } from "lucide-react";
 
 // Constants for business hours
@@ -69,7 +70,7 @@ const isLunchTime = (date: Date): boolean => {
   return totalMinutes >= lunchStartMinutes && totalMinutes < lunchEndMinutes;
 };
 
-const findNextAvailableSlot = (date: Date, existingEvents: (CalendarTimeSlot | Task)[]): Date | null => {
+const findNextAvailableSlot = (date: Date, duration: number, existingEvents: (CalendarTimeSlot | Task)[]): Date | null => {
   let startTime = roundToNearestInterval(date);
   
   if (getHours(startTime) < BUSINESS_START_HOUR) {
@@ -91,11 +92,11 @@ const findNextAvailableSlot = (date: Date, existingEvents: (CalendarTimeSlot | T
     }
 
     startTime = roundToNearestInterval(startTime);
-    const endTime = addMinutes(startTime, 30);
+    const endTime = addMinutes(startTime, duration);
     let slotOccupied = false;
 
     // Check if slot overlaps with lunch time
-    if (isLunchTime(startTime) || isLunchTime(addMinutes(startTime, 29))) {
+    if (isLunchTime(startTime) || isLunchTime(addMinutes(startTime, duration - 1))) {
       startTime = set(startTime, { 
         hours: LUNCH_END_HOUR, 
         minutes: LUNCH_END_MINUTE 
@@ -184,11 +185,33 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
         ? roundToNearestInterval(today)
         : getStartOfBusinessHours(targetDate);
 
-      // Schedule each task
+      // Determine duration for each task
+      const tasksWithDurations = [] as { task: Task; duration: number; isEmail: boolean }[];
       for (const task of unscheduledTasks) {
-        const nextSlot = findNextAvailableSlot(startTime, allEvents);
+        const title = task.title.toLowerCase();
+        const isEmail = /email|e-mail|send/.test(title);
+        const isSlides = /slide|slides|prep|preparing|presentation/.test(title);
+        let duration = 30;
+
+        if (isEmail) {
+          duration = 15;
+        } else if (isSlides) {
+          duration = 30;
+        } else {
+          duration = await estimateDuration(task.title);
+        }
+
+        tasksWithDurations.push({ task, duration, isEmail });
+      }
+
+      // Group email tasks together
+      tasksWithDurations.sort((a, b) => Number(b.isEmail) - Number(a.isEmail));
+
+      // Schedule each task
+      for (const { task, duration } of tasksWithDurations) {
+        const nextSlot = findNextAvailableSlot(startTime, duration, allEvents);
         if (nextSlot) {
-          const endTime = addMinutes(nextSlot, 30);
+          const endTime = addMinutes(nextSlot, duration);
           await updateTask(task.id, {
             ...task,
             start_time: nextSlot.toISOString(),
@@ -217,7 +240,7 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
         <DialogHeader>
           <DialogTitle className="text-lg">Let us put these in your calendar for you?</DialogTitle>
           <DialogDescription className="text-sm">
-            We'll schedule them for the next available 30 min slots, keeping your lunch free!
+            We'll schedule them for the next available slots, keeping your lunch free!
           </DialogDescription>
         </DialogHeader>
 
