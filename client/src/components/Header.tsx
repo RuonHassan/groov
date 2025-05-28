@@ -7,7 +7,8 @@ import {
   Calendar,
   User,
   LogOut,
-  Settings
+  Settings,
+  BarChart3
 } from "lucide-react";
 import CalendarSettingsPopup from "./CalendarSettingsPopup";
 import SettingsPopup from "./SettingsPopup";
@@ -90,6 +91,12 @@ export default function Header() {
                 >
                   <Calendar className="mr-2 h-4 w-4" strokeWidth={2.5} />
                   <span>Calendars</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/statistics" className="flex items-center cursor-pointer">
+                    <BarChart3 className="mr-2 h-4 w-4" strokeWidth={2.5} />
+                    <span>Statistics</span>
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="flex items-center cursor-pointer"

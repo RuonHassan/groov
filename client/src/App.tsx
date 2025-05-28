@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/LandingPage";
 import Dashboard from "@/pages/Dashboard";
 import CalendarPage from "@/pages/CalendarPage";
+import StatisticsPage from "@/pages/StatisticsPage";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
@@ -61,6 +62,13 @@ function Router() {
           </Layout>
         </PrivateRoute>
       </Route>
+      <Route path="/statistics">
+        <PrivateRoute>
+          <Layout>
+            <StatisticsPage />
+          </Layout>
+        </PrivateRoute>
+      </Route>
 
       {/* OAuth Callback routes */}
       <Route path="/auth/google/callback">
@@ -68,9 +76,7 @@ function Router() {
       </Route>
 
       {/* 404 route */}
-      <Route default>
-        <NotFound />
-      </Route>
+      <Route path="*" component={NotFound} />
     </Switch>
   );
 }
