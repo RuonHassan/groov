@@ -7,7 +7,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useGoogleCalendar } from '@/contexts/GoogleCalendarContext';
+import { useOutlookCalendar } from '@/contexts/OutlookCalendarContext';
 import GoogleCalendarButton from "./GoogleCalendarButton";
+import OutlookCalendarButton from "./OutlookCalendarButton";
 
 interface CalendarSettingsPopupProps {
   open: boolean;
@@ -16,6 +18,7 @@ interface CalendarSettingsPopupProps {
 
 export default function CalendarSettingsPopup({ open, onOpenChange }: CalendarSettingsPopupProps) {
   const { isConnected } = useGoogleCalendar();
+  const { isConnected: isOutlookConnected } = useOutlookCalendar();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -42,17 +45,21 @@ export default function CalendarSettingsPopup({ open, onOpenChange }: CalendarSe
               <GoogleCalendarButton />
             </div>
 
-            {/* Outlook Calendar - Coming Soon */}
-            <div className="flex items-center justify-between space-x-2 p-3 rounded-lg border opacity-50">
+            {/* Outlook Calendar */}
+            <div className="flex items-center justify-between space-x-2 p-3 rounded-lg border">
               <div className="flex items-center space-x-3">
                 <CalendarClock className="h-5 w-5" />
                 <div>
                   <h4 className="font-medium">Outlook Calendar</h4>
+                  {isOutlookConnected && (
+                    <div className="flex items-center space-x-1 text-xs text-green-600">
+                      <Check className="h-3 w-3" />
+                      <span>Connected</span>
+                    </div>
+                  )}
                 </div>
               </div>
-              <Button variant="outline" size="sm" disabled>
-                Coming Soon
-              </Button>
+              <OutlookCalendarButton />
             </div>
 
             {/* Apple Calendar - Coming Soon */}

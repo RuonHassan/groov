@@ -144,7 +144,11 @@ The project follows a monorepo-like structure with shared code:
 *   **Event Synchronization:** See Google Calendar events alongside app events
 *   **Token Management:** Automatic refresh token handling for persistent access
 
-### 4. User Authentication
+### 4. Outlook Calendar Sync
+*   **OAuth Authentication:** Secure connection to Outlook Calendar
+*   **Calendar Integration:** View Outlook events in the app
+
+### 5. User Authentication
 *   **Supabase Auth:** Complete authentication system using Supabase
 *   **Email/Password:** Traditional login with email confirmation
 *   **Password Reset:** Secure password reset flow
@@ -250,6 +254,9 @@ The application uses Supabase Edge Functions for serverless operations:
 *   `google-calendar-callback`: Handles OAuth callback and token storage
 *   `google-calendar-refresh`: Refreshes expired Google API tokens
 
+### Outlook Calendar OAuth Flow
+*   `outlook-calendar-callback`: Handles OAuth callback and token storage
+
 ## Data Models (`/shared/schema.ts`)
 
 Key data structures defined using Drizzle ORM and Zod:
@@ -319,6 +326,9 @@ The application connects to Google Calendar using OAuth 2.0:
     VITE_GOOGLE_CLIENT_SECRET=your-google-client-secret
     VITE_GOOGLE_API_KEY=your-google-api-key
     VITE_REDIRECT_URI=http://localhost:5173/auth/google/callback
+
+    # Outlook OAuth Configuration
+    VITE_OUTLOOK_CLIENT_ID=your-outlook-client-id
 
     # Database (if using separate Postgres instance)
     DATABASE_URL=your-postgres-connection-string

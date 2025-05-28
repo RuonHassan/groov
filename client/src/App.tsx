@@ -17,7 +17,9 @@ import { WeekProvider } from "./contexts/WeekContext";
 import Layout from "@/components/Layout";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { GoogleCalendarProvider } from "./contexts/GoogleCalendarContext";
+import { OutlookCalendarProvider } from "./contexts/OutlookCalendarContext";
 import GoogleCalendarCallback from '@/components/GoogleCalendarCallback';
+import OutlookCalendarCallback from '@/components/OutlookCalendarCallback';
 
 // Component to protect routes
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
@@ -66,6 +68,9 @@ function Router() {
       <Route path="/auth/google/callback">
         <GoogleCalendarCallback />
       </Route>
+      <Route path="/auth/outlook/callback">
+        <OutlookCalendarCallback />
+      </Route>
 
       {/* 404 route */}
       <Route default>
@@ -82,8 +87,10 @@ export default function App() {
         <WeekProvider>
           <TaskProvider>
             <GoogleCalendarProvider>
-              <Router />
-              <Toaster />
+              <OutlookCalendarProvider>
+                <Router />
+                <Toaster />
+              </OutlookCalendarProvider>
             </GoogleCalendarProvider>
           </TaskProvider>
         </WeekProvider>
