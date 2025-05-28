@@ -93,6 +93,8 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   // Update task mutation: Accepts snake_case payload
   const updateTaskMutation = useMutation<Task | undefined, Error, { id: number; taskPayload: Record<string, any> }>({
     mutationFn: async ({ id, taskPayload }: { id: number; taskPayload: Record<string, any> }) => {
+      console.log("Updating task:", { id, taskPayload });
+      
       const { data, error } = await supabase
         .from('tasks')
         .update(taskPayload) // Pass snake_case payload directly
@@ -104,16 +106,20 @@ export function TaskProvider({ children }: { children: ReactNode }) {
         console.error("Supabase error updating task:", error);
         throw new Error(error.message || 'Failed to update task');
       }
+      
+      console.log("Task updated successfully:", data);
       return data ? data as Task : undefined; // This cast might be incorrect
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      console.log("Task update success, invalidating queries");
       toast({
         title: "Task updated",
         description: `Task "${data?.title || ''}" has been updated successfully.`,
       });
     },
     onError: (error) => {
+      console.error("Task update failed:", error);
       toast({
         title: "Error",
         description: `Failed to update task: ${error.message}`,

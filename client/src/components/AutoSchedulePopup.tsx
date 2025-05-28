@@ -41,9 +41,28 @@ const getNextBusinessDay = (date: Date): Date => {
   let nextDay = dfnsAddDays(date, 1);
   const dayOfWeek = getDay(nextDay);
   
-  if (dayOfWeek === 6) { // Saturday
+  // If it's Saturday, move to Monday
+  if (dayOfWeek === 6) { 
     nextDay = dfnsAddDays(nextDay, 2);
-  } else if (dayOfWeek === 0) { // Sunday
+  } 
+  // If it's Sunday, move to Monday
+  else if (dayOfWeek === 0) { 
+    nextDay = dfnsAddDays(nextDay, 1);
+  }
+  
+  return startOfDay(nextDay);
+};
+
+const isWeekend = (date: Date): boolean => {
+  const day = getDay(date);
+  return day === 0 || day === 6; // Sunday or Saturday
+};
+
+const moveToNextBusinessDay = (date: Date): Date => {
+  let nextDay = dfnsAddDays(date, 1);
+  
+  // Keep moving forward until we hit a weekday
+  while (isWeekend(nextDay)) {
     nextDay = dfnsAddDays(nextDay, 1);
   }
   
@@ -75,36 +94,64 @@ const isLunchTime = (date: Date): boolean => {
 const findNextAvailableSlot = (date: Date, duration: number, existingEvents: (CalendarTimeSlot | Task)[]): Date | null => {
   let startTime = roundToNearestInterval(date);
   
+  console.log("Finding next available slot:", {
+    originalDate: date,
+    duration,
+    startTime,
+    existingEventsCount: existingEvents.length
+  });
+  
+  // If we're before business hours, move to start of business hours
   if (getHours(startTime) < BUSINESS_START_HOUR) {
     startTime = getStartOfBusinessHours(startTime);
+    console.log("Moved to start of business hours:", startTime);
   }
   
-  if (getHours(startTime) >= BUSINESS_END_HOUR || [0, 6].includes(getDay(startTime))) {
-    startTime = getStartOfBusinessHours(getNextBusinessDay(startTime));
+  // If we're after business hours or on weekend, move to next business day
+  if (getHours(startTime) >= BUSINESS_END_HOUR || isWeekend(startTime)) {
+    const originalStartTime = startTime;
+    startTime = getStartOfBusinessHours(moveToNextBusinessDay(startTime));
+    console.log("Moved to next business day:", {
+      from: originalStartTime,
+      to: startTime,
+      reason: getHours(originalStartTime) >= BUSINESS_END_HOUR ? "after business hours" : "weekend"
+    });
   }
 
   const MAX_DAYS_TO_CHECK = 14;
-  let daysChecked = 0;
-  const BUSINESS_HOURS_PER_DAY = (BUSINESS_END_HOUR - BUSINESS_START_HOUR) * 60 - 60; // 8 hours - 1 hour lunch = 7 hours = 420 minutes
+  let currentDate = startOfDay(startTime);
+  let businessDaysChecked = 0;
 
-  while (daysChecked < MAX_DAYS_TO_CHECK) {
+  while (businessDaysChecked < MAX_DAYS_TO_CHECK) {
+    // Skip weekends
+    if (isWeekend(currentDate)) {
+      currentDate = moveToNextBusinessDay(currentDate);
+      startTime = getStartOfBusinessHours(currentDate);
+      console.log("Skipped weekend to:", currentDate);
+      continue;
+    }
+
+    // If we've moved past business hours for this day, move to next business day
     if (getHours(startTime) >= BUSINESS_END_HOUR) {
-      startTime = getStartOfBusinessHours(getNextBusinessDay(startTime));
-      daysChecked++;
+      currentDate = moveToNextBusinessDay(currentDate);
+      startTime = getStartOfBusinessHours(currentDate);
+      businessDaysChecked++;
+      console.log("Moved to next business day due to end of hours:", {
+        newDate: currentDate,
+        businessDaysChecked
+      });
       continue;
     }
 
     startTime = roundToNearestInterval(startTime);
     
-    // For very long tasks (> 7 hours), we need to cap the duration to fit within business hours
-    // and potentially schedule continuation on subsequent days
-    const maxDurationToday = getEndOfBusinessHours(startTime).getTime() - startTime.getTime();
+    // Calculate available time today, accounting for lunch break
+    const maxDurationToday = getEndOfBusinessHours(currentDate).getTime() - startTime.getTime();
     const maxDurationTodayMinutes = Math.floor(maxDurationToday / (1000 * 60));
     
-    // Calculate how much we can fit today, accounting for lunch break
     let availableTimeToday = maxDurationTodayMinutes;
-    const lunchStartTime = set(startTime, { hours: LUNCH_START_HOUR, minutes: LUNCH_START_MINUTE });
-    const lunchEndTime = set(startTime, { hours: LUNCH_END_HOUR, minutes: LUNCH_END_MINUTE });
+    const lunchStartTime = set(currentDate, { hours: LUNCH_START_HOUR, minutes: LUNCH_START_MINUTE });
+    const lunchEndTime = set(currentDate, { hours: LUNCH_END_HOUR, minutes: LUNCH_END_MINUTE });
     
     // If the task would span lunch time, subtract lunch duration
     if (startTime < lunchStartTime && addMinutes(startTime, Math.min(duration, availableTimeToday)) > lunchStartTime) {
@@ -118,10 +165,11 @@ const findNextAvailableSlot = (date: Date, duration: number, existingEvents: (Ca
 
     // Check if slot overlaps with lunch time
     if (isLunchTime(startTime) || (effectiveDuration > 0 && isLunchTime(addMinutes(startTime, effectiveDuration - 1)))) {
-      startTime = set(startTime, { 
+      startTime = set(currentDate, { 
         hours: LUNCH_END_HOUR, 
         minutes: LUNCH_END_MINUTE 
       });
+      console.log("Skipped lunch time, moved to:", startTime);
       continue;
     }
 
@@ -131,6 +179,7 @@ const findNextAvailableSlot = (date: Date, duration: number, existingEvents: (Ca
       adjustedEndTime = addMinutes(endTime, 60); // Add lunch break duration
     }
 
+    // Check for conflicts with existing events
     for (const event of existingEvents) {
       if (!event.start_time || !event.end_time) continue;
       try {
@@ -138,13 +187,26 @@ const findNextAvailableSlot = (date: Date, duration: number, existingEvents: (Ca
         const eventEnd = parseISO(event.end_time);
         if (!isValid(eventStart) || !isValid(eventEnd)) continue;
 
+        // Check for overlap using the adjusted end time
         if (isBefore(eventStart, adjustedEndTime) && isBefore(startTime, eventEnd)) {
           slotOccupied = true;
-          startTime = roundToNearestInterval(addMinutes(eventEnd, 1));
+          // Move to the end of the conflicting event and round to next interval
+          const nextStartTime = roundToNearestInterval(addMinutes(eventEnd, 1));
           
-          if (getHours(startTime) >= BUSINESS_END_HOUR) {
-            startTime = getStartOfBusinessHours(getNextBusinessDay(startTime));
-            daysChecked++;
+          console.log("Conflict found, moving past event:", {
+            eventTitle: ('title' in event) ? event.title : "Untitled",
+            eventStart,
+            eventEnd,
+            nextStartTime
+          });
+          
+          // If moving past this event pushes us beyond business hours, we'll handle it in the next iteration
+          if (getHours(nextStartTime) >= BUSINESS_END_HOUR) {
+            // Set time to end of business day so next iteration will move to next day
+            startTime = set(currentDate, { hours: BUSINESS_END_HOUR, minutes: 0 });
+            console.log("Conflict pushed us past business hours, will move to next day");
+          } else {
+            startTime = nextStartTime;
           }
           break;
         }
@@ -153,13 +215,29 @@ const findNextAvailableSlot = (date: Date, duration: number, existingEvents: (Ca
       }
     }
 
+    // If slot is not occupied and fits within business hours, return it
     if (!slotOccupied && isWithinBusinessHours(startTime) && isWithinBusinessHours(addMinutes(startTime, effectiveDuration - 1))) {
+      console.log("Found available slot:", {
+        startTime,
+        endTime: addMinutes(startTime, effectiveDuration),
+        effectiveDuration,
+        businessDaysChecked
+      });
       return roundToNearestInterval(startTime);
     }
 
-    startTime = addMinutes(startTime, MINUTES_INTERVAL);
+    // Move to next 15-minute slot if no conflicts but still not valid
+    if (!slotOccupied) {
+      startTime = addMinutes(startTime, MINUTES_INTERVAL);
+      
+      // If we've moved past business hours, let the next iteration handle moving to next day
+      if (getHours(startTime) >= BUSINESS_END_HOUR) {
+        continue;
+      }
+    }
   }
 
+  console.warn(`Could not find an available slot within ${MAX_DAYS_TO_CHECK} business days for ${duration}-minute task`);
   return null;
 };
 
@@ -237,47 +315,120 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
         }
       } else if (resolution.action === "move_moveable_tasks" && resolution.moveableConflictsToMove) {
         // Find and move ALL moveable conflicting tasks
-        let updatedEvents = [...allEvents];
+        console.log("Moving all conflicting tasks and scheduling anyway", {
+          moveableConflicts: resolution.moveableConflictsToMove.length,
+          scheduleAnywayWithImmoveable: resolution.scheduleAnywayWithImmoveable,
+          tasksToMove: resolution.moveableConflictsToMove.map(c => ({ title: c.title, time: `${c.start_time} - ${c.end_time}` }))
+        });
         
+        let updatedEvents = [...allEvents];
+        const movedTasks: Array<{ id: number; oldStart: string; oldEnd: string; newStart: string; newEnd: string }> = [];
+        
+        // First, remove all conflicting tasks from the events list
         for (const conflictToMove of resolution.moveableConflictsToMove) {
-          const taskToMove = tasks.find(t => 
+          updatedEvents = updatedEvents.filter(e => 
+            !(e.start_time === conflictToMove.start_time && e.end_time === conflictToMove.end_time)
+          );
+        }
+        
+        console.log(`Processing ${resolution.moveableConflictsToMove.length} moveable conflicts`);
+        
+        // Debug: Show available tasks vs conflicts
+        const availableTasks = tasks.filter(t => t.start_time && t.end_time);
+        console.log("Debug - Available tasks:", availableTasks.map(t => ({
+          id: t.id,
+          title: t.title,
+          start: t.start_time,
+          end: t.end_time
+        })));
+        
+        console.log("Debug - Conflicts to move:", resolution.moveableConflictsToMove.map(c => ({
+          title: c.title,
+          start: c.start_time,
+          end: c.end_time
+        })));
+        
+        // Then find new slots and move the tasks one by one
+        for (const conflictToMove of resolution.moveableConflictsToMove) {
+          // Find ALL tasks that match this conflict (there could be multiple with same time)
+          const matchingTasks = tasks.filter(t => 
             t.start_time === conflictToMove.start_time && 
             t.end_time === conflictToMove.end_time
           );
           
-          if (taskToMove) {
+          console.log(`Found ${matchingTasks.length} tasks matching conflict:`, {
+            conflictTime: `${conflictToMove.start_time} - ${conflictToMove.end_time}`,
+            conflictTitle: conflictToMove.title,
+            matchingTaskTitles: matchingTasks.map(t => t.title)
+          });
+          
+          if (matchingTasks.length === 0) {
+            console.warn("No matching task found for conflict:", conflictToMove);
+            continue;
+          }
+          
+          // Move each matching task
+          for (const taskToMove of matchingTasks) {
             // Calculate duration of the existing task
             const existingTaskDuration = (new Date(taskToMove.end_time!).getTime() - new Date(taskToMove.start_time!).getTime()) / (1000 * 60);
             
-            // Remove this task from the events list for finding next slot
-            updatedEvents = updatedEvents.filter(e => 
-              !(e.start_time === taskToMove.start_time && e.end_time === taskToMove.end_time)
-            );
-            
-            // Find next available slot for this task
-            const nextSlot = findNextAvailableSlot(specifiedTime, existingTaskDuration, updatedEvents);
+            // Find next available slot for this task - start looking after the new task's end time
+            const searchStartTime = addMinutes(specifiedTime, tasksWithDurations.find(t => t.task.id === task.id)?.duration || 30);
+            const nextSlot = findNextAvailableSlot(searchStartTime, existingTaskDuration, updatedEvents);
             
             if (nextSlot) {
               const endTime = addMinutes(nextSlot, existingTaskDuration);
-              await updateTask(taskToMove.id, {
-                ...taskToMove,
-                start_time: nextSlot.toISOString(),
-                end_time: endTime.toISOString()
+              
+              // Track the move for later batch update
+              movedTasks.push({
+                id: taskToMove.id,
+                oldStart: taskToMove.start_time!,
+                oldEnd: taskToMove.end_time!,
+                newStart: nextSlot.toISOString(),
+                newEnd: endTime.toISOString()
               });
               
-              // Add the moved task to the updated events list
+              // Add the moved task to the updated events list immediately so subsequent tasks avoid this slot
               updatedEvents.push({
                 start_time: nextSlot.toISOString(),
                 end_time: endTime.toISOString(),
                 title: taskToMove.title,
                 source: 'task' as const
               });
+              
+              console.log("Moved task to new slot:", {
+                taskTitle: taskToMove.title,
+                taskId: taskToMove.id,
+                oldTime: `${conflictToMove.start_time} - ${conflictToMove.end_time}`,
+                newTime: `${nextSlot.toISOString()} - ${endTime.toISOString()}`,
+                duration: existingTaskDuration
+              });
+            } else {
+              console.warn("Could not find available slot for conflicting task:", taskToMove.title);
             }
           }
         }
         
-        // Update the pending schedule with the new events list
-        setPendingSchedule(prev => prev ? { ...prev, allEvents: updatedEvents } : null);
+        // Update all moved tasks in sequence to avoid race conditions
+        console.log(`Updating ${movedTasks.length} moved tasks in database`);
+        for (const movedTask of movedTasks) {
+          const taskToMove = tasks.find(t => t.id === movedTask.id);
+          if (taskToMove) {
+            console.log(`Updating task ${movedTask.id}: ${movedTask.oldStart} -> ${movedTask.newStart}`);
+            await updateTask(movedTask.id, {
+              ...taskToMove,
+              start_time: movedTask.newStart,
+              end_time: movedTask.newEnd
+            });
+          }
+        }
+        
+        console.log(`Successfully moved ${movedTasks.length} conflicting tasks`);
+        
+        // Validate we moved all expected tasks
+        if (movedTasks.length !== resolution.moveableConflictsToMove.length) {
+          console.warn(`Expected to move ${resolution.moveableConflictsToMove.length} tasks but only moved ${movedTasks.length}`);
+        }
 
         // Now schedule the conflicting task at its specified time
         const taskInfo = tasksWithDurations.find(t => t.task.id === task.id);
@@ -341,9 +492,34 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
     allEvents: Array<{ start_time: string; end_time: string; title?: string; source?: 'task' | 'calendar' }>, 
     targetDate: Date
   ) => {
-    let startTime = (section === "tomorrow")
-      ? getStartOfBusinessHours(targetDate)
-      : roundToNearestInterval(new Date());
+    let startTime: Date;
+    if (section === "tomorrow") {
+      // For tomorrow, always start at beginning of business hours
+      startTime = getStartOfBusinessHours(targetDate);
+    } else {
+      // For today, start from current time but ensure it's within business hours
+      const currentTime = roundToNearestInterval(new Date());
+      if (isWeekend(currentTime)) {
+        // If it's weekend, move to next Monday
+        startTime = getStartOfBusinessHours(moveToNextBusinessDay(currentTime));
+      } else if (getHours(currentTime) >= BUSINESS_END_HOUR) {
+        // If it's after business hours, move to next business day
+        startTime = getStartOfBusinessHours(moveToNextBusinessDay(currentTime));
+      } else if (getHours(currentTime) < BUSINESS_START_HOUR) {
+        // If it's before business hours, move to start of business hours today
+        startTime = getStartOfBusinessHours(currentTime);
+      } else {
+        // During business hours - start from current time
+        startTime = currentTime;
+      }
+    }
+
+    console.log("Calculated start time:", {
+      section,
+      startTime,
+      targetDate,
+      currentTime: new Date()
+    });
 
     // Schedule remaining tasks that don't have specific times
     for (const taskInfo of remainingTasks.filter(t => !t.hasSpecificTime)) {
@@ -369,8 +545,17 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
 
   const handleAutoSchedule = async () => {
     setIsScheduling(true);
-    const today = roundToNearestInterval(new Date());
+    const now = new Date();
+    const today = roundToNearestInterval(now);
     const targetDate = section === "today" ? today : section === "tomorrow" ? dfnsAddDays(today, 1) : section === "overdue" ? today : today;
+    
+    console.log("Auto-schedule starting:", {
+      section,
+      now,
+      today,
+      targetDate,
+      isWeekend: isWeekend(targetDate)
+    });
     
     try {
       // Get Google Calendar events
@@ -407,6 +592,12 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
 
       // Combine all events
       const allEvents = [...convertedGoogleEvents, ...scheduledTasks];
+
+      console.log("Events loaded:", {
+        googleEvents: convertedGoogleEvents.length,
+        scheduledTasks: scheduledTasks.length,
+        totalEvents: allEvents.length
+      });
 
       // Handle overdue tasks differently - they need to be moved from past to future
       if (section === "overdue") {
@@ -537,7 +728,24 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
       for (const taskInfo of tasksWithDurations.filter(t => t.hasSpecificTime)) {
         if (taskInfo.specifiedTime) {
           const { moveableConflicts, immoveableConflicts } = checkTimeConflict(taskInfo.specifiedTime, taskInfo.duration, allEvents);
+          
+          console.log("Checking conflicts for task:", {
+            task: taskInfo.task.title,
+            specifiedTime: taskInfo.specifiedTime,
+            duration: taskInfo.duration,
+            moveableConflicts: moveableConflicts.length,
+            immoveableConflicts: immoveableConflicts.length,
+            allEventsCount: allEvents.length,
+            moveableConflictsDetails: moveableConflicts.map(c => ({ title: c.title, time: `${c.start_time} - ${c.end_time}` })),
+            immoveableConflictsDetails: immoveableConflicts.map(c => ({ title: c.title, time: `${c.start_time} - ${c.end_time}` }))
+          });
+          
           if (moveableConflicts.length > 0 || immoveableConflicts.length > 0) {
+            console.log("Conflicts found, showing resolution dialog", {
+              moveableConflicts,
+              immoveableConflicts
+            });
+            
             // Show conflict resolution dialog
             setConflictingTask({
               task: taskInfo.task,
@@ -553,9 +761,34 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
       }
 
       // If no conflicts, proceed with normal scheduling
-      let startTime = (section === "tomorrow")
-        ? getStartOfBusinessHours(targetDate)
-        : roundToNearestInterval(today);
+      let startTime: Date;
+      if (section === "tomorrow") {
+        // For tomorrow, always start at beginning of business hours
+        startTime = getStartOfBusinessHours(targetDate);
+      } else {
+        // For today, start from current time but ensure it's within business hours
+        const currentTime = roundToNearestInterval(new Date());
+        if (isWeekend(currentTime)) {
+          // If it's weekend, move to next Monday
+          startTime = getStartOfBusinessHours(moveToNextBusinessDay(currentTime));
+        } else if (getHours(currentTime) >= BUSINESS_END_HOUR) {
+          // If it's after business hours, move to next business day
+          startTime = getStartOfBusinessHours(moveToNextBusinessDay(currentTime));
+        } else if (getHours(currentTime) < BUSINESS_START_HOUR) {
+          // If it's before business hours, move to start of business hours today
+          startTime = getStartOfBusinessHours(currentTime);
+        } else {
+          // During business hours - start from current time
+          startTime = currentTime;
+        }
+      }
+
+      console.log("Calculated start time:", {
+        section,
+        startTime,
+        targetDate,
+        currentTime: new Date()
+      });
 
       // Schedule tasks with specific times first
       for (const taskInfo of tasksWithDurations.filter(t => t.hasSpecificTime)) {

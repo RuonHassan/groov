@@ -1,9 +1,7 @@
-import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Task } from "@shared/schema";
 import { format } from "date-fns";
-import { Clock, AlertTriangle } from "lucide-react";
 
 interface ConflictingEvent {
   start_time: string;
@@ -14,6 +12,7 @@ interface ConflictingEvent {
 export interface ConflictResolution {
   action: "schedule_anyway" | "move_moveable_tasks" | "reschedule_new_task";
   moveableConflictsToMove?: ConflictingEvent[];
+  scheduleAnywayWithImmoveable?: boolean;
 }
 
 interface ConflictResolutionPopupProps {
@@ -36,17 +35,30 @@ export default function ConflictResolutionPopup({
   immoveableConflicts 
 }: ConflictResolutionPopupProps) {
   const handleScheduleAnyway = () => {
+    console.log("Conflict resolution: Schedule anyway selected");
     onResolve({ action: "schedule_anyway" });
     onClose();
   };
 
   const handleMoveMoveable = () => {
-    // Move all moveable conflicting tasks
-    onResolve({ action: "move_moveable_tasks", moveableConflictsToMove: moveableConflicts });
+    console.log("Conflict resolution: Move ALL conflicting tasks selected", { 
+      moveableConflicts: moveableConflicts.length,
+      immoveableConflicts: immoveableConflicts.length,
+      willScheduleAnywayWithCalendarEvents: hasImmoveableConflicts 
+    });
+    
+    // Move ALL moveable conflicting tasks (these are all tasks, not calendar events)
+    // Calendar events (immoveable conflicts) cannot be moved, so we schedule anyway with those
+    onResolve({ 
+      action: "move_moveable_tasks", 
+      moveableConflictsToMove: moveableConflicts,
+      scheduleAnywayWithImmoveable: hasImmoveableConflicts
+    });
     onClose();
   };
 
   const handleRescheduleNewTask = () => {
+    console.log("Conflict resolution: Reschedule new task selected");
     onResolve({ action: "reschedule_new_task" });
     onClose();
   };
@@ -56,8 +68,13 @@ export default function ConflictResolutionPopup({
     try {
       const start = new Date(conflict.start_time);
       const end = new Date(conflict.end_time);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        console.warn("Invalid conflict time:", conflict);
+        return "Invalid time";
+      }
       return `${format(start, 'h:mm a')} - ${format(end, 'h:mm a')}`;
-    } catch {
+    } catch (error) {
+      console.error("Error formatting conflict time:", conflict, error);
       return "Invalid time";
     }
   };
@@ -70,6 +87,22 @@ export default function ConflictResolutionPopup({
   const hasImmoveableConflicts = immoveableConflicts.length > 0;
   const hasMoveableConflicts = moveableConflicts.length > 0;
 
+  // Debug logging
+  console.log("ConflictResolutionPopup rendered:", {
+    open,
+    task: task?.title,
+    specifiedTime,
+    totalConflicts,
+    moveableConflicts: moveableConflicts.length,
+    immoveableConflicts: immoveableConflicts.length
+  });
+
+  // Don't show dialog if there are no conflicts
+  if (totalConflicts === 0) {
+    console.warn("ConflictResolutionPopup: No conflicts detected, dialog should not be shown");
+    return null;
+  }
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="!max-w-[420px] w-[calc(100%-1rem)] !sm:max-w-[420px] rounded-lg">
@@ -78,9 +111,11 @@ export default function ConflictResolutionPopup({
             <DialogTitle className="text-lg">Time Conflict</DialogTitle>
           </div>
           <DialogDescription className="text-sm text-gray-600">
-            {totalConflicts === 1 
-              ? `There's calendar event scheduled at ${format(specifiedTime, 'EEEE h:mm a')}.`
-              : `Your task would overlap with ${totalConflicts} existing events at ${format(specifiedTime, 'EEEE h:mm a')}.`
+            {totalConflicts === 0 
+              ? "No conflicts detected."
+              : totalConflicts === 1 
+                ? `There's ${hasImmoveableConflicts ? 'a calendar event' : 'a task'} scheduled at ${format(specifiedTime, 'EEEE h:mm a')}.`
+                : `Your task would overlap with ${totalConflicts} existing ${hasImmoveableConflicts && hasMoveableConflicts ? 'events and tasks' : hasImmoveableConflicts ? 'calendar events' : 'tasks'} at ${format(specifiedTime, 'EEEE h:mm a')}.`
             }
           </DialogDescription>
         </DialogHeader>
@@ -105,7 +140,7 @@ export default function ConflictResolutionPopup({
           {hasMoveableConflicts && (
             <div>
               <h4 className="mb-3 font-medium text-sm text-gray-900">
-                ✅ Your Tasks (can be moved):
+                Conflicting Tasks:
               </h4>
               <div className="space-y-2">
                 {moveableConflicts.map((conflict, index) => (
@@ -121,13 +156,13 @@ export default function ConflictResolutionPopup({
 
         <DialogFooter className="pt-2">
           <div className="flex gap-2 w-full">
-            {hasImmoveableConflicts && (
+            {hasImmoveableConflicts && !hasMoveableConflicts && (
               <Button 
                 variant="outline"
                 onClick={handleScheduleAnyway}
                 className="flex-1"
               >
-                {hasImmoveableConflicts ? "Schedule Anyway" : "Schedule Together"}
+                Schedule Anyway
               </Button>
             )}
             
@@ -135,8 +170,9 @@ export default function ConflictResolutionPopup({
               <Button 
                 onClick={handleMoveMoveable}
                 className="flex-1"
+                variant="outline"
               >
-                Move Your Tasks & Schedule Here
+                {hasImmoveableConflicts ? "Move All Tasks & Schedule Anyway" : "Move All Tasks & Schedule"}
               </Button>
             )}
             
@@ -144,7 +180,7 @@ export default function ConflictResolutionPopup({
               onClick={handleRescheduleNewTask}
               className="flex-1"
             >
-              Schedule This Task Later
+              Schedule Later
             </Button>
           </div>
         </DialogFooter>

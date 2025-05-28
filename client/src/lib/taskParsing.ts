@@ -232,26 +232,32 @@ export const checkTimeConflict = (
       const eventStart = parseISO(event.start_time);
       const eventEnd = parseISO(event.end_time);
       
-      if (!isValid(eventStart) || !isValid(eventEnd)) continue;
+      if (!isValid(eventStart) || !isValid(eventEnd)) {
+        console.warn("Invalid date found in event:", event);
+        continue;
+      }
       
       // Check for overlap: events overlap if one starts before the other ends
-      const hasOverlap = isBefore(eventStart, taskEndTime) && isBefore(specifiedTime, eventEnd);
+      // We need to ensure there's actual overlap, not just touching boundaries
+      const hasOverlap = eventStart < taskEndTime && specifiedTime < eventEnd;
       
       if (hasOverlap) {
         const conflict = {
           start_time: event.start_time,
           end_time: event.end_time,
-          title: event.title
+          title: event.title || "Untitled Event"
         };
         
+        // Calendar events are immoveable, tasks are moveable
         if (event.source === 'calendar') {
           immoveableConflicts.push(conflict);
         } else {
+          // Default to moveable if source is not specified or is 'task'
           moveableConflicts.push(conflict);
         }
       }
     } catch (error) {
-      console.error("Error parsing event times:", error);
+      console.error("Error parsing event times in conflict check:", event, error);
     }
   }
   
