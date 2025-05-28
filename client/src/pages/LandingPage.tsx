@@ -29,19 +29,19 @@ if (typeof document !== 'undefined') {
 // Testimonial data
 const testimonials = [
   {
-    quote: "Groov has completely changed how I manage my tasks. It's the perfect balance of simplicity and power.",
+    quote: "Groov has completely changed how I manage my tasks. The smart scheduling feature is incredibly helpful.",
     author: "Alex Murray",
     title: "Software Engineer",
     avatar: "https://i.pravatar.cc/150?img=1"
   },
   {
-    quote: "The clean design and intuitive interface make Groov a standout productivity tool. I was able to get started immediately.",
+    quote: "The app automatically schedules my tasks at the perfect times. I've never been more productive - it's like having a personal assistant!",
     author: "Morgan Chen",
     title: "Content Creator",
     avatar: "https://i.pravatar.cc/150?img=2"
   },
   {
-    quote: "My productivity increased significantly after switching to Groov. It's so easy to stay organized and focused.",
+    quote: "My productivity increased significantly after switching to Groov. The intelligent scheduling feature is a game-changer for staying organized.",
     author: "Sam Johnson",
     title: "Freelance Designer",
     avatar: "https://i.pravatar.cc/150?img=3"
@@ -169,7 +169,7 @@ export default function LandingPage() {
                 </h1>
                 <p className="text-lg md:text-xl text-gray-600 mb-8 max-w-lg">
                   The sleek todo list app designed for modern productivity. 
-                  Minimize complexity and maximize your potential.
+                  Minimize complexity and maximize your potential with intelligent scheduling.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
                   <Link href="/register"> 
@@ -209,12 +209,16 @@ export default function LandingPage() {
                 Designed for your productivity
               </h2>
               <p className="text-lg text-gray-600">
-                Groov helps you stay organized with powerful but intuitive features that fit seamlessly into your daily routine.
+                Groov helps you stay organized with intelligent features that fit seamlessly into your daily routine.
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {[
+                {
+                  title: "AI Powered Scheduling",
+                  description: "Use AI to optimize your task schedule based on your priorities, deadlines, and available time slots."
+                },
                 {
                   title: "Simple Task Management",
                   description: "Create, organize, and track tasks with a clean interface designed for efficiency."
@@ -225,11 +229,7 @@ export default function LandingPage() {
                 },
                 {
                   title: "Calendar Integration",
-                  description: "Seamlessly sync with Google Calendar to manage tasks and events in one place."
-                },
-                {
-                  title: "Personal Organization",
-                  description: "Keep all your tasks and projects organized in one beautiful interface."
+                  description: "Seamlessly sync with Google Calendar to manage AI-scheduled tasks and events in one place."
                 }
               ].map((feature, index) => (
                 <div key={index} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 hover:-translate-y-1">
@@ -307,7 +307,7 @@ export default function LandingPage() {
                   <ul className="space-y-4 mb-8">
                     {[
                       "Free to get started, no credit card required",
-                      "Unlimited tasks on the free plan",
+                      "Smart scheduling features included",
                       "Beautiful, intuitive interface",
                       "Priority support for all users"
                     ].map((item, i) => (
@@ -333,7 +333,7 @@ export default function LandingPage() {
                       "Groov has transformed how I manage my daily tasks."
                     </h3>
                     <p className="text-white/90 mb-6">
-                      The clean design and intuitive interface make it a joy to use. I've never been more productive.
+                      The smart scheduling automatically optimizes my day while the clean design makes it a joy to use. I've never been more productive.
                     </p>
                     <div className="flex items-center">
                       <img 
@@ -363,7 +363,7 @@ export default function LandingPage() {
                 className="h-10 mb-4 invert"
               />
               <p className="text-white/60 mb-8 max-w-md">
-                Simple, beautiful and powerful todo list app for modern productivity.
+                Simple, beautiful and intelligent todo list app for modern productivity.
               </p>
               <div className="border-t border-white/10 pt-8 w-full flex flex-col md:flex-row justify-between items-center">
                 <p className="text-white/60 text-sm">
