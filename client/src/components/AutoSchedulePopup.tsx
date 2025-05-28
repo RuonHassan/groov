@@ -150,7 +150,14 @@ interface TaskWithParsedInfo {
 interface ConflictingTask {
   task: Task;
   specifiedTime: Date;
-  conflicts: Array<{ start_time: string; end_time: string; title?: string }>;
+  moveableConflicts: Array<{ start_time: string; end_time: string; title?: string }>;
+  immoveableConflicts: Array<{ start_time: string; end_time: string; title?: string }>;
+}
+
+interface PendingSchedule {
+  tasksWithDurations: TaskWithParsedInfo[];
+  allEvents: Array<{ start_time: string; end_time: string; title?: string; source?: 'task' | 'calendar' }>;
+  targetDate: Date;
 }
 
 interface AutoSchedulePopupProps {
@@ -163,11 +170,7 @@ interface AutoSchedulePopupProps {
 export default function AutoSchedulePopup({ open, onClose, section, unscheduledTasks }: AutoSchedulePopupProps) {
   const [isScheduling, setIsScheduling] = useState(false);
   const [conflictingTask, setConflictingTask] = useState<ConflictingTask | null>(null);
-  const [pendingSchedule, setPendingSchedule] = useState<{
-    tasksWithDurations: TaskWithParsedInfo[];
-    allEvents: Array<{ start_time: string; end_time: string; title?: string }>;
-    targetDate: Date;
-  } | null>(null);
+  const [pendingSchedule, setPendingSchedule] = useState<PendingSchedule | null>(null);
   
   const { isConnected, calendars, fetchEvents } = useGoogleCalendar();
   const { tasks, updateTask } = useTaskContext();
@@ -177,21 +180,41 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
 
     const { task, specifiedTime } = conflictingTask;
     const { tasksWithDurations, allEvents, targetDate } = pendingSchedule;
-    
-    if (resolution.action === "cancel") {
-      setConflictingTask(null);
-      setPendingSchedule(null);
-      return;
-    }
 
     try {
       setIsScheduling(true);
 
-      if (resolution.action === "move_all_existing" && resolution.conflictsToMove) {
-        // Find and move ALL conflicting tasks
+      if (resolution.action === "reschedule_new_task") {
+        // Find next available slot for the new task instead of scheduling at specified time
+        const taskInfo = tasksWithDurations.find(t => t.task.id === task.id);
+        if (taskInfo) {
+          const nextSlot = findNextAvailableSlot(specifiedTime, taskInfo.duration, allEvents);
+          if (nextSlot) {
+            const endTime = addMinutes(nextSlot, taskInfo.duration);
+            await updateTask(task.id, {
+              ...task,
+              title: taskInfo.parsedInfo.cleanTitle,
+              start_time: nextSlot.toISOString(),
+              end_time: endTime.toISOString()
+            });
+
+            // Update allEvents and continue with remaining tasks
+            const updatedEvents = [...allEvents, {
+              start_time: nextSlot.toISOString(),
+              end_time: endTime.toISOString(),
+              title: taskInfo.parsedInfo.cleanTitle,
+              source: 'task' as const
+            }];
+
+            const remainingTasks = tasksWithDurations.filter(t => t.task.id !== task.id);
+            await continueScheduling(remainingTasks, updatedEvents, targetDate);
+          }
+        }
+      } else if (resolution.action === "move_moveable_tasks" && resolution.moveableConflictsToMove) {
+        // Find and move ALL moveable conflicting tasks
         let updatedEvents = [...allEvents];
         
-        for (const conflictToMove of resolution.conflictsToMove) {
+        for (const conflictToMove of resolution.moveableConflictsToMove) {
           const taskToMove = tasks.find(t => 
             t.start_time === conflictToMove.start_time && 
             t.end_time === conflictToMove.end_time
@@ -221,7 +244,8 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
               updatedEvents.push({
                 start_time: nextSlot.toISOString(),
                 end_time: endTime.toISOString(),
-                title: taskToMove.title
+                title: taskToMove.title,
+                source: 'task' as const
               });
             }
           }
@@ -229,28 +253,52 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
         
         // Update the pending schedule with the new events list
         setPendingSchedule(prev => prev ? { ...prev, allEvents: updatedEvents } : null);
-      }
 
-      // Now schedule the conflicting task at its specified time
-      const taskInfo = tasksWithDurations.find(t => t.task.id === task.id);
-      if (taskInfo) {
-        const endTime = addMinutes(specifiedTime, taskInfo.duration);
-        await updateTask(task.id, {
-          ...task,
-          title: taskInfo.parsedInfo.cleanTitle,
-          start_time: specifiedTime.toISOString(),
-          end_time: endTime.toISOString()
-        });
+        // Now schedule the conflicting task at its specified time
+        const taskInfo = tasksWithDurations.find(t => t.task.id === task.id);
+        if (taskInfo) {
+          const endTime = addMinutes(specifiedTime, taskInfo.duration);
+          await updateTask(task.id, {
+            ...task,
+            title: taskInfo.parsedInfo.cleanTitle,
+            start_time: specifiedTime.toISOString(),
+            end_time: endTime.toISOString()
+          });
 
-        // Update allEvents and continue with remaining tasks
-        const updatedEvents = [...(pendingSchedule?.allEvents || []), {
-          start_time: specifiedTime.toISOString(),
-          end_time: endTime.toISOString(),
-          title: taskInfo.parsedInfo.cleanTitle
-        }];
+          // Update allEvents and continue with remaining tasks
+          const finalUpdatedEvents = [...updatedEvents, {
+            start_time: specifiedTime.toISOString(),
+            end_time: endTime.toISOString(),
+            title: taskInfo.parsedInfo.cleanTitle,
+            source: 'task' as const
+          }];
 
-        const remainingTasks = tasksWithDurations.filter(t => t.task.id !== task.id);
-        await continueScheduling(remainingTasks, updatedEvents, targetDate);
+          const remainingTasks = tasksWithDurations.filter(t => t.task.id !== task.id);
+          await continueScheduling(remainingTasks, finalUpdatedEvents, targetDate);
+        }
+      } else if (resolution.action === "schedule_anyway") {
+        // Schedule at the specified time regardless of conflicts
+        const taskInfo = tasksWithDurations.find(t => t.task.id === task.id);
+        if (taskInfo) {
+          const endTime = addMinutes(specifiedTime, taskInfo.duration);
+          await updateTask(task.id, {
+            ...task,
+            title: taskInfo.parsedInfo.cleanTitle,
+            start_time: specifiedTime.toISOString(),
+            end_time: endTime.toISOString()
+          });
+
+          // Update allEvents and continue with remaining tasks
+          const updatedEvents = [...allEvents, {
+            start_time: specifiedTime.toISOString(),
+            end_time: endTime.toISOString(),
+            title: taskInfo.parsedInfo.cleanTitle,
+            source: 'task' as const
+          }];
+
+          const remainingTasks = tasksWithDurations.filter(t => t.task.id !== task.id);
+          await continueScheduling(remainingTasks, updatedEvents, targetDate);
+        }
       }
 
       setConflictingTask(null);
@@ -265,7 +313,7 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
 
   const continueScheduling = async (
     remainingTasks: TaskWithParsedInfo[], 
-    allEvents: Array<{ start_time: string; end_time: string; title?: string }>, 
+    allEvents: Array<{ start_time: string; end_time: string; title?: string; source?: 'task' | 'calendar' }>, 
     targetDate: Date
   ) => {
     let startTime = section === "tomorrow"
@@ -286,7 +334,8 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
         allEvents.push({
           start_time: nextSlot.toISOString(),
           end_time: endTime.toISOString(),
-          title: taskInfo.parsedInfo.cleanTitle
+          title: taskInfo.parsedInfo.cleanTitle,
+          source: 'task' as const
         });
         startTime = endTime;
       }
@@ -311,10 +360,11 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
       }
 
       // Convert Google events
-      const convertedGoogleEvents: Array<{ start_time: string; end_time: string; title?: string }> = googleEvents.map(event => ({
+      const convertedGoogleEvents: Array<{ start_time: string; end_time: string; title?: string; source: 'calendar' }> = googleEvents.map(event => ({
         start_time: event.start.dateTime,
         end_time: event.end.dateTime,
-        title: event.summary
+        title: event.summary,
+        source: 'calendar'
       }));
 
       // Get scheduled tasks
@@ -324,7 +374,8 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
       ).map(task => ({
         start_time: task.start_time!,
         end_time: task.end_time!,
-        title: task.title
+        title: task.title,
+        source: 'task' as const
       }));
 
       // Combine all events
@@ -343,6 +394,8 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
           duration = 15;
         } else if (isSlides) {
           duration = 30;
+        } else if (parsedInfo.hasDurationSpecification && parsedInfo.specifiedDuration) {
+          duration = parsedInfo.specifiedDuration;
         } else {
           duration = await estimateDuration(parsedInfo.cleanTitle);
         }
@@ -370,13 +423,14 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
       // Check for conflicts with tasks that have specific times
       for (const taskInfo of tasksWithDurations.filter(t => t.hasSpecificTime)) {
         if (taskInfo.specifiedTime) {
-          const conflicts = checkTimeConflict(taskInfo.specifiedTime, taskInfo.duration, allEvents);
-          if (conflicts.length > 0) {
+          const { moveableConflicts, immoveableConflicts } = checkTimeConflict(taskInfo.specifiedTime, taskInfo.duration, allEvents);
+          if (moveableConflicts.length > 0 || immoveableConflicts.length > 0) {
             // Show conflict resolution dialog
             setConflictingTask({
               task: taskInfo.task,
               specifiedTime: taskInfo.specifiedTime,
-              conflicts
+              moveableConflicts,
+              immoveableConflicts
             });
             setPendingSchedule({ tasksWithDurations, allEvents, targetDate });
             setIsScheduling(false);
@@ -403,7 +457,8 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
           allEvents.push({
             start_time: taskInfo.specifiedTime.toISOString(),
             end_time: endTime.toISOString(),
-            title: taskInfo.parsedInfo.cleanTitle
+            title: taskInfo.parsedInfo.cleanTitle,
+            source: 'task' as const
           });
         }
       }
@@ -422,7 +477,7 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
   // Count tasks with specific time requirements
   const tasksWithSpecificTimes = unscheduledTasks.filter(task => {
     const parsed = parseTaskTitle(task.title);
-    return parsed.hasTimeSpecification || parsed.hasDaySpecification;
+    return parsed.hasTimeSpecification || parsed.hasDaySpecification || parsed.hasDurationSpecification;
   }).length;
 
   return (
@@ -446,7 +501,7 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
             <ul className="space-y-1">
               {unscheduledTasks.map(task => {
                 const parsed = parseTaskTitle(task.title);
-                const hasSpecificRequirements = parsed.hasTimeSpecification || parsed.hasDaySpecification;
+                const hasSpecificRequirements = parsed.hasTimeSpecification || parsed.hasDaySpecification || parsed.hasDurationSpecification;
                 return (
                   <li key={task.id} className="text-sm text-gray-600 flex">
                     <span className="mr-2 flex-shrink-0">•</span>
@@ -479,7 +534,8 @@ export default function AutoSchedulePopup({ open, onClose, section, unscheduledT
           onResolve={handleConflictResolution}
           task={conflictingTask.task}
           specifiedTime={conflictingTask.specifiedTime}
-          conflicts={conflictingTask.conflicts}
+          moveableConflicts={conflictingTask.moveableConflicts}
+          immoveableConflicts={conflictingTask.immoveableConflicts}
         />
       )}
     </>

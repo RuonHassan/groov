@@ -1,11 +1,13 @@
-import { addDays, addMinutes, set, startOfDay, getDay, parseISO, isValid } from "date-fns";
+import { addDays, addMinutes, set, startOfDay, getDay, parseISO, isValid, isBefore } from "date-fns";
 
 // Types for parsed task information
 export interface ParsedTaskInfo {
   hasTimeSpecification: boolean;
   hasDaySpecification: boolean;
+  hasDurationSpecification: boolean;
   specifiedTime?: Date;
   specifiedDay?: Date;
+  specifiedDuration?: number; // in minutes
   cleanTitle: string;
 }
 
@@ -25,6 +27,16 @@ const DAY_PATTERNS = [
   /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i,
   /\bon\s+(mon|tue|wed|thu|fri|sat|sun)\b/i,
   /\b(mon|tue|wed|thu|fri|sat|sun)\b/i,
+];
+
+// Duration parsing patterns
+const DURATION_PATTERNS = [
+  /\bfor\s+(\d+(?:\.\d+)?)\s*(?:hour|hours|hr|hrs)\b/i,
+  /\bfor\s+(\d+(?:\.\d+)?)\s*(?:minute|minutes|min|mins)\b/i,
+  /\bfor\s+(\d+(?:\.\d+)?)\s*(?:h)\b/i,
+  /\b(\d+(?:\.\d+)?)\s*(?:hour|hours|hr|hrs)\s*(?:long|duration)?\b/i,
+  /\b(\d+(?:\.\d+)?)\s*(?:minute|minutes|min|mins)\s*(?:long|duration)?\b/i,
+  /\b(\d+(?:\.\d+)?)\s*(?:h)\s*(?:long|duration)?\b/i,
 ];
 
 // Day name to number mapping
@@ -81,6 +93,41 @@ function parseTime(title: string, baseDate: Date = new Date()): { time?: Date; c
 }
 
 /**
+ * Parse duration specification from task title
+ */
+function parseDuration(title: string): { duration?: number; cleanTitle: string } {
+  let cleanTitle = title;
+  
+  for (const pattern of DURATION_PATTERNS) {
+    const match = title.match(pattern);
+    if (match) {
+      const durationValue = parseFloat(match[1]);
+      
+      if (!isNaN(durationValue) && durationValue > 0) {
+        let durationInMinutes: number;
+        
+        // Check if it's hours or minutes based on the pattern
+        const fullMatch = match[0].toLowerCase();
+        if (fullMatch.includes('hour') || fullMatch.includes('hr') || fullMatch.includes('h')) {
+          durationInMinutes = durationValue * 60;
+        } else {
+          durationInMinutes = durationValue;
+        }
+        
+        // Remove the duration specification from title
+        cleanTitle = title.replace(match[0], '').trim();
+        // Clean up extra spaces and prepositions
+        cleanTitle = cleanTitle.replace(/\s+/g, ' ').replace(/^(for|of)\s+/i, '').trim();
+        
+        return { duration: durationInMinutes, cleanTitle };
+      }
+    }
+  }
+  
+  return { cleanTitle };
+}
+
+/**
  * Parse day specification from task title
  */
 function parseDay(title: string, baseDate: Date = new Date()): { day?: Date; cleanTitle: string } {
@@ -117,18 +164,25 @@ function parseDay(title: string, baseDate: Date = new Date()): { day?: Date; cle
 }
 
 /**
- * Parse task title for time and day specifications
+ * Parse task title for time, day, and duration specifications
  */
 export function parseTaskTitle(title: string, baseDate: Date = new Date()): ParsedTaskInfo {
   let workingTitle = title;
   let specifiedTime: Date | undefined;
   let specifiedDay: Date | undefined;
+  let specifiedDuration: number | undefined;
   
-  // First parse day, then time
+  // First parse duration to extract it from the title
+  const durationResult = parseDuration(workingTitle);
+  workingTitle = durationResult.cleanTitle;
+  specifiedDuration = durationResult.duration;
+  
+  // Then parse day
   const dayResult = parseDay(workingTitle, baseDate);
   workingTitle = dayResult.cleanTitle;
   specifiedDay = dayResult.day;
   
+  // Finally parse time
   const timeResult = parseTime(workingTitle, specifiedDay || baseDate);
   workingTitle = timeResult.cleanTitle;
   
@@ -147,8 +201,10 @@ export function parseTaskTitle(title: string, baseDate: Date = new Date()): Pars
   return {
     hasTimeSpecification: !!specifiedTime,
     hasDaySpecification: !!specifiedDay,
+    hasDurationSpecification: !!specifiedDuration,
     specifiedTime,
     specifiedDay: specifiedDay || (specifiedTime ? startOfDay(specifiedTime) : undefined),
+    specifiedDuration,
     cleanTitle: workingTitle || title, // Fallback to original title if cleaning results in empty string
   };
 }
@@ -157,13 +213,17 @@ export function parseTaskTitle(title: string, baseDate: Date = new Date()): Pars
  * Check if a task conflicts with existing events at a specific time
  * Returns ALL events that overlap with the proposed time slot
  */
-export function checkTimeConflict(
-  proposedStart: Date, 
+export const checkTimeConflict = (
+  specifiedTime: Date, 
   duration: number, 
-  existingEvents: Array<{ start_time: string; end_time: string; title?: string }>
-): Array<{ start_time: string; end_time: string; title?: string }> {
-  const proposedEnd = addMinutes(proposedStart, duration);
-  const conflicts: Array<{ start_time: string; end_time: string; title?: string }> = [];
+  existingEvents: Array<{ start_time: string; end_time: string; title?: string; source?: 'task' | 'calendar' }>
+): { 
+  moveableConflicts: Array<{ start_time: string; end_time: string; title?: string }>,
+  immoveableConflicts: Array<{ start_time: string; end_time: string; title?: string }>
+} => {
+  const taskEndTime = addMinutes(specifiedTime, duration);
+  const moveableConflicts: Array<{ start_time: string; end_time: string; title?: string }> = [];
+  const immoveableConflicts: Array<{ start_time: string; end_time: string; title?: string }> = [];
   
   for (const event of existingEvents) {
     if (!event.start_time || !event.end_time) continue;
@@ -174,24 +234,26 @@ export function checkTimeConflict(
       
       if (!isValid(eventStart) || !isValid(eventEnd)) continue;
       
-      // Check for ANY overlap between the proposed time slot and existing event
-      // This covers all cases:
-      // 1. Event starts before and ends during proposed slot
-      // 2. Event starts during and ends after proposed slot  
-      // 3. Event is completely within proposed slot
-      // 4. Event completely encompasses proposed slot
-      const hasOverlap = (
-        (eventStart < proposedEnd && eventEnd > proposedStart) ||  // Any overlap
-        (proposedStart < eventEnd && proposedEnd > eventStart)     // Reverse check for safety
-      );
+      // Check for overlap: events overlap if one starts before the other ends
+      const hasOverlap = isBefore(eventStart, taskEndTime) && isBefore(specifiedTime, eventEnd);
       
       if (hasOverlap) {
-        conflicts.push(event);
+        const conflict = {
+          start_time: event.start_time,
+          end_time: event.end_time,
+          title: event.title
+        };
+        
+        if (event.source === 'calendar') {
+          immoveableConflicts.push(conflict);
+        } else {
+          moveableConflicts.push(conflict);
+        }
       }
-    } catch (e) {
-      console.error("Error parsing event times during conflict check:", event, e);
+    } catch (error) {
+      console.error("Error parsing event times:", error);
     }
   }
   
-  return conflicts;
-} 
+  return { moveableConflicts, immoveableConflicts };
+}; 

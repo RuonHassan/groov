@@ -12,8 +12,8 @@ interface ConflictingEvent {
 }
 
 export interface ConflictResolution {
-  action: "schedule_anyway" | "move_all_existing" | "cancel";
-  conflictsToMove?: ConflictingEvent[];
+  action: "schedule_anyway" | "move_moveable_tasks" | "reschedule_new_task";
+  moveableConflictsToMove?: ConflictingEvent[];
 }
 
 interface ConflictResolutionPopupProps {
@@ -22,7 +22,8 @@ interface ConflictResolutionPopupProps {
   onResolve: (resolution: ConflictResolution) => void;
   task: Task;
   specifiedTime: Date;
-  conflicts: ConflictingEvent[];
+  moveableConflicts: ConflictingEvent[];
+  immoveableConflicts: ConflictingEvent[];
 }
 
 export default function ConflictResolutionPopup({ 
@@ -31,21 +32,22 @@ export default function ConflictResolutionPopup({
   onResolve, 
   task, 
   specifiedTime, 
-  conflicts 
+  moveableConflicts,
+  immoveableConflicts 
 }: ConflictResolutionPopupProps) {
   const handleScheduleAnyway = () => {
     onResolve({ action: "schedule_anyway" });
     onClose();
   };
 
-  const handleMoveExisting = () => {
-    // Move ALL conflicting tasks
-    onResolve({ action: "move_all_existing", conflictsToMove: conflicts });
+  const handleMoveMoveable = () => {
+    // Move all moveable conflicting tasks
+    onResolve({ action: "move_moveable_tasks", moveableConflictsToMove: moveableConflicts });
     onClose();
   };
 
-  const handleCancel = () => {
-    onResolve({ action: "cancel" });
+  const handleRescheduleNewTask = () => {
+    onResolve({ action: "reschedule_new_task" });
     onClose();
   };
 
@@ -64,59 +66,85 @@ export default function ConflictResolutionPopup({
     return conflict.title || "Untitled Event";
   };
 
+  const totalConflicts = moveableConflicts.length + immoveableConflicts.length;
+  const hasImmoveableConflicts = immoveableConflicts.length > 0;
+  const hasMoveableConflicts = moveableConflicts.length > 0;
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="!max-w-[400px] w-[calc(100%-1rem)] !sm:max-w-[400px] rounded-lg">
+      <DialogContent className="!max-w-[420px] w-[calc(100%-1rem)] !sm:max-w-[420px] rounded-lg">
         <DialogHeader className="space-y-3">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-amber-500" />
             <DialogTitle className="text-lg">Time Conflict</DialogTitle>
           </div>
           <DialogDescription className="text-sm text-gray-600">
-            {conflicts.length === 1 
-              ? `There's already something scheduled at ${format(specifiedTime, 'EEEE h:mm a')}.`
-              : `Your task would overlap with ${conflicts.length} existing events at ${format(specifiedTime, 'EEEE h:mm a')}.`
+            {totalConflicts === 1 
+              ? `There's calendar event scheduled at ${format(specifiedTime, 'EEEE h:mm a')}.`
+              : `Your task would overlap with ${totalConflicts} existing events at ${format(specifiedTime, 'EEEE h:mm a')}.`
             }
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div>
-            <h4 className="mb-3 font-medium text-sm text-gray-900">
-              {conflicts.length === 1 ? 'Conflicting with:' : `${conflicts.length} conflicting events:`}
-            </h4>
-            <div className="space-y-2">
-              {conflicts.map((conflict, index) => (
-                <div key={index}>
-                  <div className="font-medium text-gray-900 text-sm">{getConflictTitle(conflict)}</div>
-                  <div className="text-gray-500 text-xs mt-0.5">{formatConflictTime(conflict)}</div>
-                </div>
-              ))}
+          {hasImmoveableConflicts && (
+            <div>
+              <h4 className="mb-3 font-medium text-sm text-gray-900">
+                Calendar Events:
+              </h4>
+              <div className="space-y-2">
+                {immoveableConflicts.map((conflict, index) => (
+                  <div key={index}>
+                    <div className="font-medium text-gray-900 text-sm">{getConflictTitle(conflict)}</div>
+                    <div className="text-gray-500 text-xs mt-0.5">{formatConflictTime(conflict)}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {hasMoveableConflicts && (
+            <div>
+              <h4 className="mb-3 font-medium text-sm text-gray-900">
+                ✅ Your Tasks (can be moved):
+              </h4>
+              <div className="space-y-2">
+                {moveableConflicts.map((conflict, index) => (
+                  <div key={index}>
+                    <div className="font-medium text-gray-900 text-sm">{getConflictTitle(conflict)}</div>
+                    <div className="text-gray-500 text-xs mt-0.5">{formatConflictTime(conflict)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="pt-2">
-          <div className="flex flex-col gap-2 sm:flex-row sm:gap-2 w-full">
+          <div className="flex gap-2 w-full">
+            {hasImmoveableConflicts && (
+              <Button 
+                variant="outline"
+                onClick={handleScheduleAnyway}
+                className="flex-1"
+              >
+                {hasImmoveableConflicts ? "Schedule Anyway" : "Schedule Together"}
+              </Button>
+            )}
+            
+            {hasMoveableConflicts && (
+              <Button 
+                onClick={handleMoveMoveable}
+                className="flex-1"
+              >
+                Move Your Tasks & Schedule Here
+              </Button>
+            )}
+            
             <Button 
-              variant="outline" 
-              onClick={handleCancel}
-              className="w-full sm:w-auto"
+              onClick={handleRescheduleNewTask}
+              className="flex-1"
             >
-              Cancel
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={handleScheduleAnyway}
-              className="w-full sm:w-auto"
-            >
-              Schedule Together
-            </Button>
-            <Button 
-              onClick={handleMoveExisting}
-              className="w-full sm:w-auto"
-            >
-              Move Tasks
+              Schedule This Task Later
             </Button>
           </div>
         </DialogFooter>
