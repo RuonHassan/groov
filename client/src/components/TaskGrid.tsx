@@ -147,6 +147,40 @@ export default function TaskGrid() {
   const [showCompletedPopup, setShowCompletedPopup] = useState(false);
   const [showAutoSchedulePopup, setShowAutoSchedulePopup] = useState(false);
   const [autoScheduleSection, setAutoScheduleSection] = useState<"today" | "tomorrow" | "someday">("today");
+  
+  // Add state for collapsed sections
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+
+  // Helper function to toggle section collapse
+  const toggleSectionCollapse = (section: string) => {
+    setCollapsedSections(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(section)) {
+        newSet.delete(section);
+      } else {
+        newSet.add(section);
+      }
+      return newSet;
+    });
+  };
+
+  // Helper function to get collapsed message for each section
+  const getCollapsedMessage = (section: string): string => {
+    switch (section) {
+      case "today":
+        return "What you need to do today...";
+      case "tomorrow":
+        return "What you're doing tomorrow...";
+      case "future":
+        return "What's scheduled for the future...";
+      case "someday":
+        return "New tasks, open to schedule...";
+      case "overdue":
+        return "Slipped through the cracks...";
+      default:
+        return "";
+    }
+  };
 
   // Organize tasks into Today, Tomorrow, Future, Someday, Overdue, and Completed
   const organizedTasks = useMemo(() => {
@@ -236,11 +270,12 @@ export default function TaskGrid() {
     // Special styling for completed section
     const isCompletedSection = section === "completed";
     const isTodaySection = section === "today";
+    const isCollapsed = collapsedSections.has(section);
     const sectionHeaderClasses = `font-semibold relative ${
       isCompletedSection 
         ? 'text-gray-500 text-sm py-1' 
         : 'text-gray-900 text-xl pb-1 pt-2'
-    } pl-2 pr-4 flex items-end justify-between cursor-${isCompletedSection ? 'pointer' : 'default'}`;
+    } pl-2 pr-4 flex items-end justify-between cursor-${isCompletedSection ? 'pointer' : 'pointer'}`;
 
     // Define the Quick Add UI elements directly (Button or Input)
     const quickAddUI = canQuickAdd ? (
@@ -274,7 +309,7 @@ export default function TaskGrid() {
       <div>
         <div 
           className={sectionHeaderClasses}
-          onClick={isCompletedSection ? () => setShowCompletedPopup(true) : undefined}
+          onClick={isCompletedSection ? () => setShowCompletedPopup(true) : () => toggleSectionCollapse(section)}
         >
           <div className="flex items-center justify-between w-full">
             <h2>{title}</h2>
@@ -315,22 +350,29 @@ export default function TaskGrid() {
           )}
         </div>
         
-        {(!isCompletedSection || showCompletedPopup) && (
-          <>
-            {tasks.length > 0 && (
-              <div className={isCompletedSection ? 'opacity-75' : ''}>
-                {tasks.map((task) => (
-                  <TaskCard key={task.id} task={task} />
-                ))}
-              </div>
-            )}
-            {/* Empty container for spacing when no tasks */}
-            {tasks.length === 0 && !isCompletedSection && (
-              <div className="h-2" />
-            )}
-            {/* Render Quick Add UI (Button/Input with its own padding/border div) */}
-            {quickAddUI}
-          </>
+        {/* Show collapsed message or section content */}
+        {isCollapsed && !isCompletedSection ? (
+          <div className="px-4 py-3 text-gray-500 italic text-sm">
+            {getCollapsedMessage(section)}
+          </div>
+        ) : (
+          (!isCompletedSection || showCompletedPopup) && (
+            <>
+              {tasks.length > 0 && (
+                <div className={isCompletedSection ? 'opacity-75' : ''}>
+                  {tasks.map((task) => (
+                    <TaskCard key={task.id} task={task} />
+                  ))}
+                </div>
+              )}
+              {/* Empty container for spacing when no tasks */}
+              {tasks.length === 0 && !isCompletedSection && (
+                <div className="h-2" />
+              )}
+              {/* Render Quick Add UI (Button/Input with its own padding/border div) */}
+              {quickAddUI}
+            </>
+          )
         )}
       </div>
     );
