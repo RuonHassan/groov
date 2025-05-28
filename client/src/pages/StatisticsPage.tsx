@@ -61,6 +61,28 @@ export default function StatisticsPage() {
     ] as TimeblockingData[];
   }, [completedTasks]);
 
+  // Calculate day of week data
+  const dayOfWeekData = useMemo(() => {
+    const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const dayCountMap = new Map<string, number>();
+    
+    // Initialize all days with 0
+    daysOfWeek.forEach(day => dayCountMap.set(day, 0));
+    
+    // Count completed tasks by day of week
+    completedTasks.forEach(task => {
+      const dayName = format(task.completedDate, 'EEEE'); // Full day name
+      const currentCount = dayCountMap.get(dayName) || 0;
+      dayCountMap.set(dayName, currentCount + 1);
+    });
+    
+    return daysOfWeek.map(day => ({
+      day,
+      completed: dayCountMap.get(day) || 0,
+      dayShort: day.substring(0, 3) // Mon, Tue, etc.
+    }));
+  }, [completedTasks]);
+
   // Generate chart data based on view type
   const chartData = useMemo(() => {
     const now = new Date();
@@ -360,22 +382,19 @@ export default function StatisticsPage() {
           </div>
         </div>
 
-        {/* Additional Trend Chart */}
+        {/* Day of Week Analysis */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Completion Trend</CardTitle>
-            <CardDescription>Trend line showing your productivity pattern</CardDescription>
+            <CardTitle className="text-lg">Productivity by Day of Week</CardTitle>
+            <CardDescription>Which days are you most productive?</CardDescription>
           </CardHeader>
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[300px] w-full">
-              <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <BarChart data={dayOfWeekData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
-                  dataKey="period" 
+                  dataKey="dayShort" 
                   tick={{ fontSize: 12 }}
-                  angle={viewType === "day" ? -45 : 0}
-                  textAnchor={viewType === "day" ? "end" : "middle"}
-                  height={viewType === "day" ? 80 : 60}
                 />
                 <YAxis tick={{ fontSize: 12 }} />
                 <ChartTooltip 
@@ -386,21 +405,18 @@ export default function StatisticsPage() {
                     ]}
                     labelFormatter={(label, payload) => {
                       if (payload && payload[0]) {
-                        return payload[0].payload.label;
+                        return payload[0].payload.day; // Show full day name in tooltip
                       }
                       return label;
                     }}
                   />} 
                 />
-                <Line 
-                  type="monotone" 
+                <Bar 
                   dataKey="completed" 
-                  stroke="var(--color-completed)" 
-                  strokeWidth={3}
-                  dot={{ fill: "var(--color-completed)", r: 4 }}
-                  activeDot={{ r: 6 }}
+                  fill="var(--color-completed)" 
+                  radius={[4, 4, 0, 0]}
                 />
-              </LineChart>
+              </BarChart>
             </ChartContainer>
           </CardContent>
         </Card>
